@@ -1,0 +1,2833 @@
+:root {
+            --seal-bg: url('红印.png');
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            cursor: none !important;
+        }
+
+        body {
+            background-color: #f2ebd9;
+            font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "WenQuanYi Micro Hei", "Noto Sans SC", sans-serif;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #webgl-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+
+        /* 水墨粒子 Canvas */
+        #ink-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 99998;
+            transition: opacity 0.25s ease;
+        }
+
+        /* 文人文房毛笔光标容器 (笔尖精准定位在鼠标物理坐标) */
+        #ink-cursor {
+            position: fixed;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 99999;
+            will-change: transform;
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        }
+
+        /* 20度黄金微侧倾角笔锋 (基于 vh 响应式精确换算，在任何屏幕分辨率与缩放比例下与网站显示保持严格等大) */
+        #brush-svg {
+            width: 1.38vh;
+            height: 3.62vh;
+            display: block;
+            /* 严格以笔尖极点 (7, 1) 为轴心 (43.75% 2.38%)，旋转与缩放时光标笔尖零位移漂移 */
+            transform-origin: 43.75% 2.38%;
+            transform: translate(-43.75%, -2.38%) rotate(20deg);
+            transition: transform 0.12s cubic-bezier(0.2, 0.8, 0.2, 1);
+            filter: drop-shadow(0 0.15vh 0.32vh rgba(35, 28, 22, 0.25));
+        }
+
+        /* 点击/按压时微压立锋 */
+        #ink-cursor.grabbing #brush-svg,
+        #brush-svg.active {
+            transform: translate(-43.75%, -2.38%) rotate(14deg) scale(0.92);
+        }
+
+        /* 悬停交互热点时轻微上提灵动感应 */
+        #brush-svg.hovering {
+            transform: translate(-43.75%, -2.38%) rotate(24deg) scale(1.12);
+        }
+
+        /* 鼠标移入壁画探索区域时：彻底隐去毛笔光标与粒子，仅留纯净青绿重彩探索透镜 */
+        #ink-cursor.in-mural {
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        #ink-canvas.in-mural {
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        /* 观景位 0：文人长卷题跋（采用 vh 视口高度单位，与 3D 远景松树严格锁定等比缩放，任何分辨率 100% 缩放下均保持饱满大字） */
+        #inscription-stop0 {
+            position: fixed;
+            top: 25vh; /* 整体下沉 1 单位，精准处于两树之间 */
+            left: 56.5vw; /* 视口 56.5%：视觉中心偏右 */
+            z-index: 40;
+            display: flex;
+            flex-direction: row; /* 从左往右排列：主标列 -> 分割线 -> 诗文中 -> 诗文右 */
+            align-items: flex-start; /* 顶部统一水平基准对齐 */
+            gap: 2.4vh; /* 列间留白间距随视口等比缩放 (1.2倍) */
+            color: #26201b; /* 纯正焦松烟墨色 */
+            pointer-events: none;
+            user-select: none;
+            opacity: 0.95;
+            will-change: opacity, transform;
+            font-family: "STXingkai", "Xingkai SC", "华文行楷", "方正行楷简体", "STKaiti", "KaiTi", serif;
+        }
+
+        /* 独立中间分割竖线：随整体基准位于 25vh，高度锁定 36.24vh (1.2倍) */
+        .insc-divider-line {
+            width: max(1px, 0.18vh);
+            height: 36.24vh; /* 与题跋全部高度严格等比对应 (1.2倍) */
+            background: rgba(38, 32, 27, 0.22);
+            flex-shrink: 0;
+            align-self: flex-start;
+        }
+
+        /* 全部字列与印章：基准下沉 1vh */
+        .insc-col {
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+            white-space: nowrap;
+            display: block;
+            text-align: center;
+            margin-top: 1vh;
+        }
+
+        /* 主标题列 (最左列：与右侧诗文上侧精准水平齐平) */
+        .insc-title-col {
+            font-size: 2.88vh; /* 1.2倍 */
+            font-weight: 400; /* 移除伪粗体加粗，恢复行楷原生清峻飘逸的真迹笔锋 */
+            letter-spacing: 0.16em; /* 紧凑匀称，消除中间过大间距 */
+            line-height: 1.35;
+            padding-top: 0.92vh; /* 与诗文列首字顶部齐平 */
+        }
+
+        /* 诗文列 (中列与右列：顶部齐平) */
+        .insc-poem-col {
+            font-size: 2.33vh; /* 1.2倍 */
+            font-weight: 400;
+            letter-spacing: 0.20em;
+            color: #453c34;
+            line-height: 1.35;
+            padding-top: 0.92vh; /* 顶部统一样式 */
+        }
+
+        /* 真实朱砂印章：置于“序卷”正下方，尺寸与题签等宽，精准居中对齐 */
+        .insc-seal {
+            margin-top: 0.92vh; /* 紧随序卷正下方，同列纵向垂挂 */
+            width: 2.23vh; /* 1.2倍 */
+            height: 2.59vh; /* 1.2倍 */
+            background-image: var(--seal-bg);
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            filter: drop-shadow(0 1px 2px rgba(178, 45, 38, 0.45));
+            display: inline-block;
+            vertical-align: middle;
+            transform: translateX(-0.45vh); /* 抵消竖排文本 baseline 偏置，与文字垂直中轴严格对齐 */
+        }
+
+        /* 引导提示：置于中列“风”字正下方 (加深墨色，右侧伴随极简墨线滚轮+朱砂滚珠下拨动画) */
+        .insc-hint {
+            position: relative;
+            margin-top: 1.24vh;
+            font-size: 1.68vh; /* 1.2倍 */
+            letter-spacing: 0.08em;
+            color: #2b231d; /* 浓焦墨色，彻底清晰显眼，不再发浅 */
+            animation: insc-hint-breathe 2.6s ease-in-out infinite;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .hint-arrow {
+            display: inline-block;
+            font-size: 1.39vh; /* 1.2倍 */
+            margin-top: 0.2vh;
+            vertical-align: middle;
+        }
+
+        .insc-hint-words {
+            position: relative;
+            display: inline-block;
+        }
+
+        /* 滚动深入右侧：极简墨线滚轮 + 朱砂滚珠下拨动画（无底部红箭头，向右平移且底部与“入”字齐平） */
+        .scroll-wheel-anim {
+            position: absolute;
+            left: 100%;
+            bottom: 0.12vh;
+            margin-left: 1.95vh;
+            width: 2.35vh;
+            height: 3.35vh;
+            display: inline-flex;
+            align-items: flex-end;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        .scroll-wheel-anim svg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+            filter: drop-shadow(0 0.15vh 0.35vh rgba(43, 35, 29, 0.12));
+        }
+
+        .scroll-wheel-anim .wheel-bead {
+            animation: wheelBeadDrop 1.65s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+
+        @keyframes wheelBeadDrop {
+            0% {
+                transform: translateY(0);
+                opacity: 0.95;
+            }
+            65% {
+                transform: translateY(8.5px);
+                opacity: 0.95;
+            }
+            90% {
+                transform: translateY(10.5px);
+                opacity: 0;
+            }
+            100% {
+                transform: translateY(0);
+                opacity: 0;
+            }
+        }
+
+        @keyframes insc-hint-breathe {
+            0%, 100% { opacity: 0.70; transform: translateY(0); }
+            50% { opacity: 1.0; transform: translateY(2px); }
+        }
+
+        /* 观景位 1/2/3：左上角三大古建主标 (放大字号 + 建筑名上侧汉语拼音注音 + 卷内连续常驻) */
+        #chapter-badge {
+            position: fixed;
+            top: 4.2vh;
+            left: 5.25vh;
+            z-index: 60;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+            transform: translate3d(0, -1.0vh, 0);
+            display: inline-flex;
+            align-items: center;
+            gap: 2.0vh;
+            user-select: none;
+        }
+
+        .badge-line {
+            width: 0.36vh;
+            height: 8.2vh;
+            background: linear-gradient(to bottom, #2b231d, rgba(43, 35, 29, 0.2));
+            border-radius: 0.18vh;
+            flex-shrink: 0;
+        }
+
+        .badge-text-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.55vh;
+        }
+
+        .badge-title-box {
+            display: inline-flex;
+            align-items: flex-end;
+            gap: 1.35vh;
+        }
+
+        .badge-title {
+            font-size: 3.45vh;
+            font-weight: 500;
+            color: #2b231d;
+            letter-spacing: 0.10em;
+            line-height: 1.05;
+            font-family: "STXingkai", "Xingkai SC", "华文行楷", "方正行楷简体", serif;
+        }
+
+        .badge-title ruby {
+            ruby-position: over;
+            ruby-align: center;
+            margin: 0 0.04em;
+        }
+
+        .badge-title rt {
+            font-size: 1.25vh;
+            font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            font-weight: 600;
+            color: #544538;
+            letter-spacing: 0.03vh;
+            line-height: 1.15;
+            transform: translateY(-0.15vh);
+        }
+
+        .badge-seal {
+            width: 2.85vh;
+            height: 3.40vh;
+            background-image: var(--seal-bg);
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            filter: drop-shadow(0 0.12vh 0.25vh rgba(178, 45, 38, 0.45));
+            display: inline-block;
+            flex-shrink: 0;
+            vertical-align: bottom;
+            margin-bottom: 0.1vh;
+        }
+
+        .badge-sub {
+            font-size: 1.88vh;
+            color: rgba(60, 50, 42, 0.82);
+            letter-spacing: 0.14em;
+            font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "WenQuanYi Micro Hei", "Noto Sans SC", sans-serif;
+            transition: opacity 0.25s ease;
+        }
+
+        /* ============================================================== */
+        /* 观景位 2：浑源悬空前瞻 · 3D 经折装风琴折页 (四联全景展开·纯 vh 响应式锁定·单行标题) */
+        /* ============================================================== */
+        :root {
+            --bg-paper: #f2ebd9;
+            --c-ink: #2b2520;
+            --c-ink-light: #54493f;
+            --c-zhusha: #b33928;
+            --c-gold: #855318;
+            --panel-width: 26.8vh;
+            --panel-height: 60vh;
+        }
+
+        /* 3D 舞台视口 (纯 vh 透视深度，在任何屏幕分辨率与缩放比例下 3D 透视完全恒定) */
+        #narrative-stop2 {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none !important;
+            z-index: 58;
+            perspective: 275vh;
+            perspective-origin: 50% 46%;
+            opacity: 0;
+            transition: opacity 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            user-select: none;
+            font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "WenQuanYi Micro Hei", "Noto Sans SC", sans-serif;
+        }
+
+        #narrative-stop2.expanded {
+            pointer-events: auto !important;
+        }
+
+        /* 展开时的半透明水墨暗幕遮罩 (点击可收起) */
+        .fold-backdrop {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 60% 45%, rgba(30, 24, 18, 0.32) 0%, rgba(18, 14, 10, 0.58) 100%);
+            backdrop-filter: blur(0.4vh);
+            -webkit-backdrop-filter: blur(0.4vh);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+
+        #narrative-stop2.expanded .fold-backdrop {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* 折页挂载母节点 (左移至展开后四联整体在屏幕居中的锚位：未展开时位于右侧偏中，展开后四折全宽约101vh居中) */
+        .fold-book-anchor {
+            position: absolute;
+            top: 13vh;
+            right: calc(50vw - 50.5vh);
+            width: var(--panel-width);
+            height: var(--panel-height);
+            transform-style: preserve-3d;
+            transform: translate3d(0, 0, 0) rotateX(7.5deg) rotateY(-9deg);
+            transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), right 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+            will-change: transform;
+            pointer-events: auto;
+            cursor: pointer;
+        }
+
+        #narrative-stop2.expanded .fold-book-anchor {
+            transform: translate3d(0, 0, 0) rotateX(7.5deg) rotateY(-8deg);
+            cursor: default;
+        }
+
+        /* 未展开态：内页隐藏并完全紧收封皮之后，杜绝漏字透光 */
+        #narrative-stop2:not(.expanded) #panel3,
+        #narrative-stop2:not(.expanded) #panel2,
+        #narrative-stop2:not(.expanded) #panel1 {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.22s ease;
+        }
+
+        #narrative-stop2.expanded #panel3,
+        #narrative-stop2.expanded #panel2,
+        #narrative-stop2.expanded #panel1 {
+            opacity: 1;
+            pointer-events: auto;
+            transition: opacity 0.35s ease;
+        }
+
+        /* 每一个折页的基本结构 (铰链在右边缘，由右向左层级翻折) */
+        .fold-panel-unit {
+            position: absolute;
+            top: 0;
+            width: var(--panel-width);
+            height: var(--panel-height);
+            transform-style: preserve-3d;
+            transform-origin: right center;
+            box-shadow: 0 1.5vh 4.5vh rgba(60, 48, 38, 0.14);
+            transition: transform 0.08s ease-out;
+        }
+
+        /* 正面温润纸张 (与 preview_fold.html #f7f2e7 完全一致) */
+        .panel-face-front {
+            position: absolute;
+            inset: 0;
+            background: #f7f2e7;
+            border: max(1px, 0.14vh) solid rgba(194, 159, 104, 0.38);
+            border-radius: 0.3vh;
+            padding: 1.88vh 1.88vh;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            overflow: hidden;
+        }
+
+        /* 纯空白纸张背面 (彻底杜绝透光漏字) */
+        .panel-face-back {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, #eee3cd 0%, #e5d7bc 100%);
+            border: max(1px, 0.14vh) solid rgba(194, 159, 104, 0.35);
+            border-radius: 0.3vh;
+            transform: rotateY(180deg);
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            pointer-events: none;
+        }
+
+        /* 核心纸张折痕凹凸环境光照遮罩 (双向平滑渐变，营造真纸折角) */
+        .panel-face-front::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to right, 
+                rgba(30, 24, 18, var(--shadow-left, 0)) 0%, 
+                rgba(255, 255, 255, var(--highlight, 0.04)) 48%, 
+                rgba(30, 24, 18, var(--shadow-right, 0)) 100%);
+            pointer-events: none;
+            z-index: 5;
+            transition: opacity 0.1s ease;
+        }
+
+        /* 仅封面最外侧右边缘保留一道朱砂红装订细边，内页折缝一律纯纸折痕 (彻底消除折页间的红线) */
+        #panelCover > .panel-face-front {
+            background: linear-gradient(135deg, #eee3cd 0%, #e5d7bc 100%);
+            border-right: max(3px, 0.44vh) solid var(--c-zhusha);
+        }
+
+        /* 内页折缝为纯净熟宣纸边，严禁红色边框 */
+        #panel3 > .panel-face-front,
+        #panel2 > .panel-face-front,
+        #panel1 > .panel-face-front {
+            background: #f7f2e7;
+            border-right: max(1px, 0.14vh) solid rgba(194, 159, 104, 0.35);
+        }
+
+        /* 宣纸古典白描山峦水印 (横跨四折底端·连绵千里长卷) */
+        .panel-mountain-watermark {
+            position: absolute;
+            bottom: -3.4vh;
+            left: 0;
+            width: 100%;
+            height: 25.6vh;
+            object-fit: fill;
+            pointer-events: none;
+            opacity: 0.24; /* 透明度降至24% */
+            mix-blend-mode: multiply;
+            z-index: 1;
+            display: block;
+        }
+
+        /* 善本内页装帧细线框 (古典金色细框，双边装订美感) */
+        .inner-frame {
+            z-index: 2;
+            position: relative;
+            width: 100%;
+            height: 100%;
+            border: max(1px, 0.14vh) solid rgba(194, 159, 104, 0.45);
+            padding: 1.88vh 1.62vh;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        /* 封面排版 (单行标题，留白考究) */
+        .cover-content {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            justify-content: space-between;
+            text-align: center;
+            align-items: center;
+        }
+
+        .cover-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            border-bottom: max(1px, 0.14vh) dashed rgba(194, 159, 104, 0.35);
+            padding-bottom: 0.94vh;
+        }
+
+        .cover-tag {
+            font-size: 1.50vh;
+            color: var(--c-zhusha);
+            letter-spacing: 0.15em;
+            font-weight: bold;
+        }
+
+        .cover-stamp {
+            font-size: 1.44vh;
+            color: var(--c-zhusha);
+            border: max(1px, 0.14vh) solid var(--c-zhusha);
+            padding: 0.15vh 0.68vh;
+            border-radius: 0.28vh;
+            letter-spacing: 0.10em;
+            font-weight: 600;
+        }
+
+        .cover-mid {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.38vh;
+            margin: auto 0;
+            padding: 0.80vh 0;
+            width: 100%;
+        }
+
+        .cover-title {
+            font-size: 2.40vh;
+            font-weight: 700;
+            color: var(--c-ink);
+            letter-spacing: 0.14em;
+            line-height: 1.2;
+            white-space: nowrap;
+            margin: 0;
+        }
+
+        .cover-sub {
+            font-size: 1.50vh;
+            color: var(--c-gold);
+            letter-spacing: 0.15em;
+            white-space: nowrap;
+        }
+
+        .cover-quote {
+            font-size: 1.56vh;
+            line-height: 1.82;
+            color: var(--c-ink-light);
+            letter-spacing: 0.08em;
+            text-align: justify;
+            padding: 0 0.44vh;
+            margin: 0;
+        }
+
+        /* 封皮底部交互入口：古风乌丝栏墨线直角双框（背景再增加12%透明度至0.62，无文字发光，文字绝对居中） */
+        .cover-btn {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 88%;
+            padding: 0.82vh 1.4vh;
+            background: rgba(252, 247, 237, 0.62);
+            backdrop-filter: blur(0.6vh);
+            -webkit-backdrop-filter: blur(0.6vh);
+            border: max(1px, 0.15vh) solid #2b231d;
+            outline: max(1px, 0.11vh) solid rgba(43, 35, 29, 0.55);
+            outline-offset: -0.34vh;
+            border-radius: 0;
+            color: #1f1813;
+            font-size: 1.54vh;
+            font-weight: 700;
+            letter-spacing: 0;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+            white-space: nowrap;
+            box-shadow: 0 0.4vh 1.2vh rgba(35, 26, 18, 0.10);
+        }
+
+        .cover-btn-label {
+            position: relative;
+            display: inline-block;
+            letter-spacing: 0.18em;
+            padding-left: 0.18em; /* 抵消末尾字距，使四字绝对居中对齐上方标题轴线 */
+            text-shadow: none;
+            transition: color 0.24s ease;
+        }
+
+        .cover-btn:hover {
+            background: rgba(255, 253, 248, 0.74);
+            border-color: #b22d26;
+            outline-color: rgba(178, 45, 38, 0.65);
+            color: #b22d26;
+            transform: translateY(-0.12vh);
+            box-shadow: 0 0.65vh 1.8vh rgba(178, 45, 38, 0.18);
+        }
+
+        .cover-btn:hover .cover-btn-label {
+            text-shadow: none;
+        }
+
+        .cover-btn-arrow {
+            position: absolute;
+            top: 50%;
+            font-size: 1.52vh;
+            line-height: 1;
+            letter-spacing: 0;
+            color: #b22d26;
+            text-shadow: none;
+            pointer-events: none;
+        }
+
+        .cover-btn-expand .cover-btn-arrow {
+            right: calc(100% + 0.55vh);
+            transform: translateY(-50%);
+            animation: cover-arrow-left-pulse 1.5s ease-in-out infinite;
+        }
+
+        .cover-btn-close .cover-btn-arrow {
+            left: calc(100% + 0.55vh);
+            transform: translateY(-50%);
+        }
+
+        @keyframes cover-arrow-left-pulse {
+            0%, 100% { transform: translate(0, -50%); opacity: 0.92; }
+            50% { transform: translate(-0.42vh, -50%); opacity: 1; }
+        }
+
+        .cover-btn-close {
+            display: none;
+            background: rgba(246, 239, 225, 0.62);
+        }
+
+        #narrative-stop2.expanded .cover-btn-expand {
+            display: none;
+        }
+
+        #narrative-stop2.expanded .cover-btn-close {
+            display: inline-flex;
+        }
+
+        /* 内页排版 (单行完整展现标题 · 雅致疏朗) */
+        .panel-inner-box {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            justify-content: space-between;
+            text-align: center;
+            align-items: center;
+        }
+
+        .panel-num-row {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.56vh;
+            width: 100%;
+            border-bottom: max(1px, 0.14vh) dashed rgba(194, 159, 104, 0.35);
+            padding-bottom: 0.82vh;
+        }
+
+        .panel-num {
+            font-size: 1.56vh;
+            font-weight: bold;
+            color: var(--c-zhusha);
+            letter-spacing: 0.13em;
+            border-left: max(2.2px, 0.28vh) solid var(--c-zhusha);
+            padding-left: 0.68vh;
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        .panel-badge {
+            font-size: 1.50vh;
+            color: var(--c-gold);
+            letter-spacing: 0.10em;
+            font-weight: 600;
+            white-space: nowrap;
+            padding-left: 0.94vh;
+            text-align: left;
+        }
+
+        .panel-mid {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.38vh;
+            margin: auto 0;
+            padding: 0.80vh 0;
+            width: 100%;
+        }
+
+        .panel-title {
+            font-size: 1.98vh;
+            font-weight: 700;
+            color: var(--c-ink);
+            letter-spacing: 0.11em;
+            margin: 0;
+            white-space: nowrap; /* 确保标题在一行内完整展现 */
+            line-height: 1.2;
+        }
+
+        .panel-desc {
+            font-size: 1.52vh;
+            line-height: 1.82;
+            color: var(--c-ink-light);
+            margin: 0;
+            text-align: justify;
+            letter-spacing: 0.08em;
+            padding: 0 0.28vh;
+        }
+
+        .panel-stat-box {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            border-top: max(1px, 0.14vh) dashed rgba(194, 159, 104, 0.3);
+            padding-top: 0.94vh;
+            font-size: 1.50vh;
+        }
+
+        .stat-label {
+            color: var(--c-gold);
+            letter-spacing: 0.10em;
+            white-space: nowrap;
+        }
+
+        .stat-val {
+            color: var(--c-zhusha);
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            white-space: nowrap;
+        }
+
+        /* 朱砂金石方印 */
+        .red-seal {
+            width: 2.75vh;
+            height: 2.75vh;
+            border: max(1.4px, 0.18vh) solid var(--c-zhusha);
+            color: var(--c-zhusha);
+            font-size: 1.44vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.28vh;
+            opacity: 0.9;
+            font-weight: bold;
+            margin-left: 0.80vh;
+            flex-shrink: 0;
+        }
+        /* 建筑构件古风交互：朱砂微印 + 界画游丝引线 + 局部工笔特写透镜 + 宣纸竖排浮笺 */
+        #building-hotspots {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 70;
+        }
+
+        .specimen-hotspot {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 0;
+            height: 0;
+            pointer-events: auto;
+            opacity: 0;
+            transition: opacity 0.35s ease;
+        }
+
+        /* 构件锚点：朱砂微印与金粉微芒 (尺寸与光晕等比强化，在古建深色木构/砖石背景上清晰醒目) */
+        .specimen-anchor {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 6.0vh;
+            height: 6.0vh;
+            margin-top: -3.0vh;
+            margin-left: -3.0vh;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 4;
+        }
+
+        .anchor-core {
+            width: 1.38vh;
+            height: 1.38vh;
+            background: #b22d26; /* 熟宣朱砂红 */
+            border: 0.28vh solid #fffdf7;
+            border-radius: 50%;
+            box-shadow: 0 0 1.6vh rgba(178, 45, 38, 0.98), 0 0 0.9vh rgba(212, 152, 38, 1), 0 0 2.4vh rgba(255, 248, 230, 0.65);
+            transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s ease;
+        }
+
+        .anchor-ripple {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .ripple-outer {
+            width: 3.9vh;
+            height: 3.9vh;
+            border: 0.18vh solid rgba(178, 45, 38, 0.85);
+            animation: anchor-breathe-outer 2.2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+        }
+
+        .ripple-inner {
+            width: 2.5vh;
+            height: 2.5vh;
+            border: 0.15vh solid rgba(212, 152, 38, 0.95);
+            animation: anchor-breathe-inner 1.7s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+        }
+
+        @keyframes anchor-breathe-outer {
+            0% { transform: scale(0.45); opacity: 0.98; border-color: rgba(178, 45, 38, 0.9); }
+            50% { border-color: rgba(224, 160, 40, 0.85); }
+            100% { transform: scale(1.85); opacity: 0; border-color: rgba(224, 160, 40, 0); }
+        }
+
+        @keyframes anchor-breathe-inner {
+            0% { transform: scale(0.5); opacity: 0.98; border-color: rgba(212, 152, 38, 0.95); }
+            100% { transform: scale(1.55); opacity: 0; border-color: rgba(178, 45, 38, 0); }
+        }
+
+        .specimen-hotspot:hover .anchor-core,
+        .specimen-hotspot.active .anchor-core {
+            transform: scale(1.45);
+            box-shadow: 0 0 2.2vh rgba(178, 45, 38, 1), 0 0 1.2vh rgba(240, 168, 40, 1);
+        }
+
+        /* 二级简单介绍节点：《营造法式》直角双线乌丝栏墨笺（背景增加20%透明度 + 进一步拉大与红点间距） */
+        .anchor-tag {
+            position: absolute;
+            left: 8.8vh;
+            top: 50%;
+            transform: translateY(-50%);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.68vh;
+            padding: 0.56vh 1.35vh 0.56vh 1.22vh;
+            background: rgba(252, 247, 237, 0.75);
+            backdrop-filter: blur(0.8vh);
+            -webkit-backdrop-filter: blur(0.8vh);
+            border: max(1px, 0.15vh) solid #2b231d;
+            border-left: max(2.5px, 0.32vh) solid #b22d26;
+            outline: max(1px, 0.11vh) solid rgba(43, 35, 29, 0.48);
+            outline-offset: -0.32vh;
+            border-radius: 0;
+            box-shadow: 0 0.5vh 1.6vh rgba(25, 18, 12, 0.24);
+            pointer-events: auto;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: opacity 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+            animation: tag-pulse 2.6s ease-in-out infinite;
+        }
+
+        /* 连接红点光晕外缘与直角方笺的焦墨游丝横线（加长至 3.8vh 拉开呼吸空间） */
+        .anchor-tag::before {
+            content: "";
+            position: absolute;
+            left: -3.8vh;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3.8vh;
+            height: max(1px, 0.14vh);
+            background: rgba(43, 35, 29, 0.85);
+            pointer-events: none;
+        }
+
+        /* 引线起点的焦墨微点 */
+        .anchor-tag::after {
+            content: "";
+            position: absolute;
+            left: -3.95vh;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 0.42vh;
+            height: 0.42vh;
+            background: #2b231d;
+            pointer-events: none;
+        }
+
+        .anchor-tag:hover {
+            border-color: #b22d26;
+            outline-color: rgba(178, 45, 38, 0.62);
+            background: rgba(255, 253, 248, 0.86);
+            box-shadow: 0 0.8vh 2.2vh rgba(178, 45, 38, 0.28);
+        }
+
+        .anchor-tag-text {
+            font-size: 1.46vh;
+            color: #261e18;
+            letter-spacing: 0.08vh;
+            font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Serif SC", serif;
+            font-weight: 700;
+            line-height: 1.1;
+        }
+
+        .anchor-tag-arrow {
+            font-size: 1.5vh;
+            color: #b22d26;
+            font-weight: 700;
+            transform: translateY(-0.04vh);
+            transition: transform 0.22s ease, color 0.22s ease;
+            line-height: 1;
+        }
+
+        .anchor-tag:hover .anchor-tag-arrow {
+            transform: translate(0.35vh, -0.04vh);
+            color: #b22d26;
+        }
+
+        @keyframes tag-pulse {
+            0%, 100% {
+                transform: translateY(-50%) translateX(0);
+            }
+            50% {
+                transform: translateY(-50%) translateX(0.42vh);
+            }
+        }
+
+        /* 仅在点击激活特写展开时微标淡隐避让；平时稳定保持可点击状态 */
+        .specimen-hotspot.active .anchor-tag,
+        .specimen-hotspot.pinned .anchor-tag {
+            opacity: 0;
+            transform: translateY(-50%) scale(0.85);
+            pointer-events: none;
+        }
+
+        .callout-hint {
+            font-size: 1.20vh; /* 1.2倍 */
+            color: rgba(60, 50, 42, 0.45);
+            margin-top: 0.45vh;
+            letter-spacing: 0.05em;
+            font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "WenQuanYi Micro Hei", "Noto Sans SC", sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 0.36vh;
+        }
+
+        .badge-hint {
+            font-size: 1.42vh; /* 1.2倍 */
+            color: #8c231e;
+            letter-spacing: 0.12em;
+            font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "WenQuanYi Micro Hei", "Noto Sans SC", sans-serif;
+            opacity: 0.85;
+            margin-top: 0.45vh;
+        }
+
+        /* 建筑直线引注与题跋展开：仅在点击激活 (.active) 时展现大卡片 */
+        .specimen-callout {
+            position: absolute;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+            user-select: none;
+        }
+
+        .specimen-hotspot.active .specimen-callout {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* 右上方引注 (折线向右上天空伸展) */
+        .callout-right-top {
+            transform: translate3d(0, -4.0vh, 0);
+        }
+
+        .callout-right-top .card-right {
+            position: absolute;
+            left: 15.62vh;
+            top: 1.25vh;
+            transform: translateY(-50%);
+        }
+
+        /* 左上方引注 (折线向左上天空伸展) */
+        .callout-left-top {
+            transform: translate3d(-16.25vh, -4.0vh, 0);
+        }
+
+        .callout-left-top .card-left {
+            position: absolute;
+            right: 15.62vh;
+            top: 1.25vh;
+            transform: translateY(-50%);
+            text-align: right;
+        }
+
+        /* 殿心朝元图专用大跨度向左引注 (大跨度延伸至左侧朱红殿墙空白处，画卷与考证大卡两不相掩) */
+        .callout-mural-left {
+            transform: translate3d(-31.5vh, -4.5vh, 0);
+        }
+
+        .callout-mural-left .card-left {
+            position: absolute;
+            right: 30.5vh;
+            top: 1.25vh;
+            transform: translateY(-50%);
+            text-align: right;
+        }
+
+        .callout-mural-left .leader-line-svg {
+            width: 31.5vh;
+            height: 5.5vh;
+            display: block;
+            overflow: visible;
+        }
+
+        .leader-line-svg {
+            width: 16.25vh;
+            height: 4.75vh;
+            display: block;
+            overflow: visible;
+        }
+
+        /* 题跋便笺：直角古风乌丝栏墨线便笺（背景增加20%透明度）、半透微润熟宣纸质感、置于天空空白 */
+        .callout-card {
+            font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "WenQuanYi Micro Hei", "Noto Sans SC", sans-serif;
+            background: rgba(248, 242, 232, 0.68);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: max(1px, 0.14vh) solid rgba(43, 35, 29, 0.65);
+            outline: max(1px, 0.11vh) solid rgba(43, 35, 29, 0.38);
+            outline-offset: -0.32vh;
+            border-radius: 0;
+            padding: 0.72vh 1.45vh;
+            box-shadow: 0 0.45vh 1.6vh rgba(45, 35, 25, 0.12);
+            display: flex;
+            flex-direction: column;
+            gap: 0.25vh;
+            white-space: nowrap;
+        }
+
+        .card-right {
+            border-left: max(2.5px, 0.30vh) solid #b22d26;
+            border-radius: 0;
+        }
+
+        .card-left {
+            border-right: max(2.5px, 0.30vh) solid #b22d26;
+            border-radius: 0;
+        }
+
+        .callout-title-row {
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .card-left .callout-title-row {
+            justify-content: flex-end;
+        }
+
+        .callout-title {
+            font-size: 1.94vh; /* 1.2倍 */
+            font-weight: 600;
+            font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "WenQuanYi Micro Hei", "Noto Sans SC", sans-serif;
+            letter-spacing: 0.1em;
+            color: #2b231d;
+            line-height: 1.2;
+        }
+
+        .callout-sub {
+            font-size: 1.50vh; /* 1.2倍 */
+            color: #55483d;
+            font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "WenQuanYi Micro Hei", "Noto Sans SC", sans-serif;
+            letter-spacing: 0.05em;
+            line-height: 1.45;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25vh;
+        }
+
+        /* 宣纸古风首屏加载遮罩层 (0.05 秒瞬时显现，消除白屏等待焦虑) */
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #f2ebd9;
+            z-index: 999999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 1;
+            transition: opacity 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+            pointer-events: auto;
+        }
+
+        #loading-overlay.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 30px;
+        }
+
+        .loading-seal {
+            width: 32px;
+            height: 38px;
+            background-image: var(--seal-bg);
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            filter: drop-shadow(0 2px 4px rgba(178, 45, 38, 0.35));
+            margin-bottom: 16px;
+            animation: loading-seal-breathe 2.4s ease-in-out infinite;
+        }
+
+        @keyframes loading-seal-breathe {
+            0%, 100% { transform: scale(1.0); opacity: 0.85; }
+            50% { transform: scale(1.08); opacity: 1.0; }
+        }
+
+        .loading-title {
+            font-family: "STXingkai", "Xingkai SC", "华文行楷", "方正行楷简体", serif;
+            font-size: 22px;
+            color: #26201b;
+            letter-spacing: 0.16em;
+            margin-bottom: 8px;
+        }
+
+        .loading-sub {
+            font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "WenQuanYi Micro Hei", "Noto Sans SC", sans-serif;
+            font-size: 13px;
+            color: #5a4d41;
+            letter-spacing: 0.12em;
+            margin-bottom: 24px;
+        }
+
+        .loading-bar-wrap {
+            width: 200px;
+            height: 2px;
+            background: rgba(38, 32, 27, 0.12);
+            border-radius: 1px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .loading-bar-inner {
+            width: 0%;
+            height: 100%;
+            background: #b22d26;
+            box-shadow: 0 0 6px rgba(178, 45, 38, 0.5);
+            transition: width 0.2s ease-out;
+        }
+
+        .loading-status {
+            font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "WenQuanYi Micro Hei", "Noto Sans SC", sans-serif;
+            font-size: 11px;
+            color: #7a6e63;
+            letter-spacing: 0.10em;
+            margin-top: 10px;
+        }
+    
+        /* ============================================================== */
+        /* 观景位 4：永乐仙境前瞻 · 右上角悬浮考据卡片与展开面板样式 */
+        /* ============================================================== */
+        #narrative-stop4 {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 59;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            user-select: none;
+            font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "WenQuanYi Micro Hei", "Noto Sans SC", sans-serif;
+        }
+
+        /* 展开时的半透水墨暗幕，点击暗幕也可收起卡片 */
+        #narrative-stop4 .scene4-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(20, 16, 12, 0.28);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+
+        #narrative-stop4.active .scene4-backdrop {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* 核心卡片容器：支持右上角折叠态与屏幕居中展开态平滑过渡 */
+        #narrative-stop4 .glass-panel {
+            position: absolute;
+            z-index: 10;
+            background: rgba(246, 241, 230, 0.88);
+            backdrop-filter: blur(28px);
+            -webkit-backdrop-filter: blur(28px);
+            border: 1px solid rgba(255, 255, 255, 0.65);
+            box-shadow: 0 16px 45px rgba(43, 37, 32, 0.20), 0 2px 8px rgba(255, 255, 255, 0.5) inset;
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            box-sizing: border-box;
+            overflow: hidden; /* 彻底杜绝内部折页溢出外部卡片边缘 */
+        }
+
+        /* === 观景位 4：仙鹤右侧交互文字 (黑色素雅·无发光·三角箭头指向左侧仙鹤) === */
+        .crane-hotspot {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            z-index: 55;
+            pointer-events: auto !important;
+            opacity: 0;
+            transition: opacity 0.35s ease;
+            cursor: pointer;
+            border: none !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 7px;
+            white-space: nowrap;
+            user-select: none;
+            transform-origin: left center;
+        }
+
+        .crane-prompt-text {
+            font-size: 1.95vh;
+            font-weight: 600;
+            color: #2b231d;
+            letter-spacing: 0.16em;
+            text-shadow: none !important;
+            white-space: nowrap;
+            transition: color 0.2s ease, transform 0.2s ease;
+        }
+
+        .crane-prompt-arrow {
+            font-size: 1.65vh;
+            color: #2b231d;
+            text-shadow: none !important;
+            line-height: 1;
+            transition: color 0.2s ease;
+            animation: crane-arrow-pulse-left 1.6s ease-in-out infinite;
+        }
+
+        .crane-hotspot:hover .crane-prompt-text,
+        .crane-hotspot:hover .crane-prompt-arrow {
+            color: #b22d26;
+        }
+
+        @keyframes crane-arrow-pulse-left {
+            0%, 100% { transform: translateX(0); opacity: 0.85; }
+            50% { transform: translateX(-4px); opacity: 1.0; }
+        }
+
+        /* 卷四考据卡片：未点击仙鹤时完全隐匿，杜绝右上角冗余便笺遮挡 */
+        #narrative-stop4:not(.active) {
+            display: none !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        /* === 默认卡片折叠态：右上角极简便笺/灵动胶囊徽章形态，半透呼吸，不遮挡仙境 === */
+        #narrative-stop4:not(.active) .glass-panel {
+            top: 7.5vh;
+            right: 4.5vw;
+            width: auto;
+            min-width: 220px;
+            max-width: 260px;
+            height: auto;
+            border-radius: 20px;
+            padding: 10px 16px 10px 18px;
+            cursor: pointer;
+            pointer-events: auto;
+            background: rgba(246, 240, 230, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(195, 178, 150, 0.38);
+            border-left: 3px solid #b22d26;
+            box-shadow: 0 4px 16px rgba(45, 35, 25, 0.08);
+            transform: translate3d(0, 0, 0);
+        }
+
+        #narrative-stop4:not(.active) .glass-panel:hover {
+            transform: translateY(-2px);
+            background: rgba(255, 252, 246, 0.92);
+            box-shadow: 0 8px 24px rgba(45, 35, 25, 0.14);
+            border-color: rgba(179, 57, 40, 0.4);
+        }
+
+        /* 折叠态下的极简标头与副标题 */
+        #narrative-stop4:not(.active) .title-group h2 {
+            font-size: 14.5px;
+            letter-spacing: 2px;
+            color: #2b231d;
+            margin-bottom: 2px;
+            font-weight: 600;
+        }
+
+        #narrative-stop4:not(.active) .title-group p {
+            font-size: 10px;
+            letter-spacing: 0.8px;
+            color: #6a584a;
+            white-space: nowrap;
+        }
+
+        /* 折叠态下隐藏展开内容 Deck */
+        #narrative-stop4:not(.active) .accordion-deck {
+            display: none !important;
+        }
+
+        /* 折叠卡片底部的交互小标条 */
+        .card-prompt-hint {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px dashed rgba(194, 159, 104, 0.35);
+            font-size: 10px;
+            color: var(--c-zhusha);
+            letter-spacing: 1.2px;
+            font-weight: 500;
+        }
+
+        /* === 激活展开态：置中大画幅面板 (纯 vh/vw 响应式锁定，永久复刻图3饱满视觉比例) === */
+        #narrative-stop4.active .glass-panel {
+            top: 50%;
+            left: 50%;
+            right: auto;
+            transform: translate(-50%, -50%) translateZ(0);
+            backface-visibility: hidden;
+            isolation: isolate;
+            width: min(86vw, 152vh);
+            height: 74.5vh;
+            border-radius: 2.4vh;
+            padding: 2.1vh 3.2vh 2.4vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            cursor: default;
+            pointer-events: auto;
+        }
+
+        #narrative-stop4.active .card-prompt-hint {
+            display: none !important;
+        }
+
+        /* 右上角收起按钮 (✕) */
+        .panel-close-btn {
+            display: none;
+            position: absolute;
+            top: 1.6vh;
+            right: 1.85vh;
+            width: 3.45vh;
+            height: 3.45vh;
+            border-radius: 50%;
+            border: max(1px, 0.13vh) solid rgba(194, 159, 104, 0.4);
+            background: rgba(246, 241, 230, 0.85);
+            color: #7d6f61;
+            font-size: 1.72vh;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            z-index: 20;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .panel-close-btn:hover {
+            border-color: var(--c-zhusha);
+            color: var(--c-zhusha);
+            background: rgba(255, 255, 255, 0.95);
+            transform: scale(1.08);
+        }
+
+        #narrative-stop4.active .panel-close-btn {
+            display: flex;
+        }
+
+        /* 面板头部 */
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-shrink: 0;
+        }
+
+        .title-group h2 {
+            font-size: 2.40vh;
+            letter-spacing: 0.46vh;
+            color: var(--c-ink);
+            font-weight: 600;
+            margin-bottom: 0.28vh;
+        }
+
+        .title-group p {
+            font-size: 1.46vh;
+            letter-spacing: 0.16vh;
+            color: #7d6f61;
+        }
+
+        .stamp-badge {
+            writing-mode: vertical-rl;
+            border: max(1.2px, 0.16vh) solid var(--c-zhusha);
+            color: var(--c-zhusha);
+            font-size: 1.40vh;
+            letter-spacing: 0.26vh;
+            padding: 0.52vh 0.40vh;
+            border-radius: 0.40vh;
+            opacity: 0.9;
+            background: rgba(179, 57, 40, 0.04);
+            font-weight: 500;
+            flex-shrink: 0;
+        }
+
+        #narrative-stop4.active .stamp-badge {
+            margin-right: 3.7vh; /* 避开右上角关闭按钮 */
+        }
+
+        /* 核心手风琴 Deck：高度严格受限于容器内部，严防超出 */
+        .accordion-deck {
+            display: flex;
+            gap: 1.6vh;
+            flex: 1;
+            min-height: 0; /* 允许 flex 自由收缩，杜绝高度溢出 */
+            max-height: 100%;
+            width: 100%;
+            align-items: stretch;
+            justify-content: flex-start;
+            margin-top: 1.05vh;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        /* 单个折页卡片 */
+        .card-fold {
+            position: relative;
+            flex: 0 0 9.0vh; /* 收拢宽度 */
+            height: 100%;
+            border-radius: 1.6vh;
+            background: rgba(253, 250, 243, 0.72);
+            border: max(1px, 0.13vh) solid rgba(194, 159, 104, 0.35);
+            overflow: hidden;
+            display: flex;
+            cursor: pointer;
+            box-sizing: border-box;
+            transition: flex 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+                        background 0.35s ease,
+                        border-color 0.35s ease,
+                        box-shadow 0.45s ease;
+        }
+
+        .card-fold:hover {
+            border-color: rgba(179, 57, 40, 0.45);
+            background: rgba(255, 253, 248, 0.88);
+        }
+
+        /* 激活展开大折页状态 */
+        .card-fold.active {
+            flex: 1 1 auto; /* 自动撑满剩余宽度，绝不溢出容器 */
+            background: rgba(255, 253, 248, 0.96);
+            border: max(1.2px, 0.16vh) solid rgba(194, 159, 104, 0.6);
+            box-shadow: 0 1.6vh 4.2vh rgba(50, 40, 30, 0.10);
+            cursor: default;
+        }
+
+        /* === 收拢状态下的窄条视觉：上标 · 中轴大字 · 下印 三段式古籍排版 === */
+        .collapsed-strip {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 9.0vh;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2.3vh 0 2.2vh;
+            pointer-events: none;
+            z-index: 2;
+            box-sizing: border-box;
+        }
+
+        .strip-cat-tag {
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+            font-size: 1.30vh;
+            font-weight: 700;
+            letter-spacing: 0.22vh;
+            color: #6e5d4f;
+            padding: 0.58vh 0.42vh 0.42vh;
+            border: max(1px, 0.13vh) solid rgba(194, 159, 104, 0.55);
+            border-radius: 0.36vh;
+            background: rgba(246, 241, 230, 0.82);
+            line-height: 1.15;
+            flex-shrink: 0;
+            transition: all 0.25s ease;
+        }
+
+        .card-fold.active .strip-cat-tag {
+            border-color: var(--c-zhusha);
+            color: var(--c-zhusha);
+            background: rgba(179, 57, 40, 0.08);
+        }
+
+        .card-fold:not(.active):hover .strip-cat-tag {
+            border-color: rgba(179, 57, 40, 0.5);
+            color: #3d3128;
+        }
+
+        .strip-main-title {
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+            font-family: "STKaiti", "Kaiti SC", "楷体", "Noto Serif SC", "Songti SC", serif;
+            font-size: 2.28vh;
+            font-weight: 700;
+            color: #2b231d;
+            letter-spacing: 0.68vh;
+            line-height: 1.25;
+            margin-top: 1.35vh;
+            flex-shrink: 0;
+            transition: color 0.25s ease, transform 0.25s ease;
+        }
+
+        .card-fold.active .strip-main-title {
+            color: var(--c-zhusha);
+        }
+
+        .card-fold:not(.active):hover .strip-main-title {
+            color: var(--c-zhusha);
+            transform: translateY(-0.18vh);
+        }
+
+        .strip-axis-line {
+            flex: 1;
+            width: max(1px, 0.14vh);
+            min-height: 2.4vh;
+            margin: 1.35vh 0;
+            background: linear-gradient(to bottom, rgba(194, 159, 104, 0.62) 0%, rgba(194, 159, 104, 0.15) 100%);
+            transition: background 0.25s ease;
+        }
+
+        .card-fold.active .strip-axis-line {
+            background: linear-gradient(to bottom, rgba(179, 57, 40, 0.68) 0%, rgba(194, 159, 104, 0.22) 100%);
+        }
+
+        .strip-icon {
+            width: 4.05vh;
+            height: 4.05vh;
+            border-radius: 50%;
+            border: max(1.2px, 0.15vh) solid rgba(194, 159, 104, 0.55);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: "STKaiti", "Kaiti SC", "楷体", "Noto Serif SC", serif;
+            font-size: 1.82vh;
+            font-weight: 700;
+            color: #5a4c3f;
+            background: rgba(246, 241, 230, 0.88);
+            box-shadow: 0 0.25vh 0.8vh rgba(43, 35, 29, 0.08);
+            flex-shrink: 0;
+            transition: all 0.25s ease;
+        }
+
+        .card-fold.active .strip-icon {
+            border-color: var(--c-zhusha);
+            color: #fffdf8;
+            background: var(--c-zhusha);
+            box-shadow: 0 0.35vh 1.1vh rgba(179, 57, 40, 0.28);
+        }
+
+        .card-fold:not(.active):hover .strip-icon {
+            border-color: var(--c-zhusha);
+            color: var(--c-zhusha);
+            background: rgba(255, 252, 246, 0.96);
+        }
+
+        /* === 收拢态微显白描山峦图案 (居中融入，下移且柔和透光) === */
+        .peek-artwork {
+            position: absolute;
+            bottom: 1.05vh;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 8.25vh;
+            height: 14.0vh;
+            pointer-events: none;
+            z-index: 1;
+            opacity: 0.28;
+            mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 1) 25%);
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 1) 25%);
+            transition: opacity 0.35s ease, transform 0.35s ease;
+        }
+
+        .peek-artwork img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: bottom center;
+            mix-blend-mode: multiply;
+            display: block;
+        }
+
+        .card-fold.active .peek-artwork {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .card-fold:not(.active):hover .peek-artwork {
+            opacity: 0.38;
+            transform: translateX(-50%) scale(1.02);
+        }
+
+        /* === 激活展开状态下的内容容器 === */
+        .expanded-content {
+            position: absolute;
+            top: 0;
+            left: 9.0vh;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            padding: 1.85vh 2.4vh 1.6vh 1.85vh;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.35s ease 0.12s;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .card-fold.active .expanded-content {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* 展开左侧：图文阐释 (饱满古籍分栏排版，上文+中段考据数据格+底部通栏朱砂大按钮，绝不留空) */
+        .detail-meta {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            width: 38.8vh;
+            flex-shrink: 0;
+            padding-right: 2.1vh;
+            z-index: 3;
+            border-right: max(1px, 0.13vh) dashed rgba(194, 159, 104, 0.42);
+            overflow-y: visible;
+            box-sizing: border-box;
+        }
+
+        .meta-top-block {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .meta-bottom-block {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25vh;
+            margin-top: auto;
+            padding-top: 0.85vh;
+        }
+
+        .meta-tag {
+            font-size: 1.38vh;
+            color: #9e732c;
+            letter-spacing: 0.15vh;
+            display: inline-block;
+            margin-bottom: 0.35vh;
+            font-weight: 700;
+        }
+
+        .detail-meta h3,
+        .meta-header h3 {
+            font-size: 2.38vh;
+            font-weight: 700;
+            color: #171310;
+            letter-spacing: 0.16vh;
+            margin-bottom: 0.72vh;
+            line-height: 1.22;
+        }
+
+        .meta-question {
+            font-size: 1.44vh;
+            font-weight: 600;
+            color: var(--c-zhusha);
+            letter-spacing: 0.05vh;
+            margin-bottom: 1.05vh;
+            line-height: 1.55;
+            padding: 0.62vh 1.05vh;
+            background: rgba(179, 57, 40, 0.065);
+            border-left: max(2.4px, 0.30vh) solid var(--c-zhusha);
+            border-radius: 0.30vh;
+            white-space: normal;
+        }
+
+        .meta-desc {
+            font-size: 1.45vh;
+            color: #3d332a;
+            line-height: 1.78;
+            letter-spacing: 0.05vh;
+            text-align: justify;
+            margin-bottom: 0.82vh;
+        }
+
+        .meta-desc:last-child {
+            margin-bottom: 0;
+        }
+
+        .meta-desc strong {
+            color: #171310;
+            font-weight: 700;
+        }
+
+        /* 核心考据数据三联格 (填补中部视觉断层，凝练展示工程关键指标) */
+        .meta-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.78vh;
+            padding-top: 1.05vh;
+            border-top: max(1px, 0.13vh) dashed rgba(194, 159, 104, 0.42);
+        }
+
+        .meta-stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0.78vh 0.45vh;
+            background: rgba(244, 236, 220, 0.72);
+            border: max(1px, 0.13vh) solid rgba(194, 159, 104, 0.42);
+            border-top: max(2px, 0.24vh) solid #2b231d;
+            border-radius: 0.42vh;
+            text-align: center;
+        }
+
+        .meta-stat-val {
+            font-size: 1.54vh;
+            font-weight: 700;
+            color: #171310;
+            letter-spacing: 0.04vh;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+
+        .meta-stat-lbl {
+            font-size: 1.18vh;
+            color: #6e5d4f;
+            letter-spacing: 0.03vh;
+            margin-top: 0.26vh;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+
+        /* 操作按钮组：左下角通栏实心朱砂大按钮 */
+        .meta-action-group {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+        }
+
+        .action-inspect-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.95vh;
+            width: 100%;
+            padding: 1.05vh 1.80vh;
+            border: max(1.2px, 0.16vh) solid rgba(232, 196, 134, 0.78);
+            border-radius: 0.52vh;
+            background: linear-gradient(135deg, #b23428 0%, #8f2218 100%);
+            color: #fffdf9;
+            font-family: inherit;
+            font-size: 1.58vh;
+            letter-spacing: 0.20vh;
+            font-weight: 700;
+            box-shadow: 0 0.55vh 1.65vh rgba(178, 45, 38, 0.28), inset 0 0 0 max(1px, 0.12vh) rgba(255, 245, 225, 0.22);
+            transition: all 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+            cursor: pointer;
+            transform: translateZ(0);
+            backface-visibility: hidden;
+            box-sizing: border-box;
+        }
+
+        .action-inspect-btn .btn-emblem {
+            font-size: 1.52vh;
+            color: #f6dcb0;
+            line-height: 1;
+        }
+
+        .action-inspect-btn .btn-arrow {
+            font-size: 1.62vh;
+            line-height: 1;
+            display: inline-block;
+            animation: inspect-arrow-right-pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes inspect-arrow-right-pulse {
+            0%, 100% { transform: translateX(0); opacity: 0.9; }
+            50% { transform: translateX(0.42vh); opacity: 1; }
+        }
+
+        .action-inspect-btn:hover {
+            background: linear-gradient(135deg, #c43c2f 0%, #9e271c 100%);
+            border-color: #f3d296;
+            color: #ffffff;
+            transform: translateY(-0.15vh) translateZ(0);
+            box-shadow: 0 0.8vh 2.2vh rgba(178, 45, 38, 0.38), inset 0 0 0 max(1px, 0.12vh) rgba(255, 248, 232, 0.35);
+        }
+
+        .action-inspect-btn.active-view {
+            background: linear-gradient(135deg, #2e251e 0%, #1d1712 100%);
+            border-color: rgba(194, 159, 104, 0.72);
+            color: #f7f0e2;
+            box-shadow: 0 0.45vh 1.4vh rgba(30, 24, 18, 0.25);
+        }
+
+        .action-inspect-btn.active-view:hover {
+            background: linear-gradient(135deg, #3d3128 0%, #282019 100%);
+            border-color: rgba(232, 196, 134, 0.88);
+            color: #fffdf9;
+        }
+
+        /* 展开右侧：图解与高精配图展台 (支持整片点击联动切换图解) */
+        .art-stage {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding-left: 1.85vh;
+            overflow: hidden;
+            box-sizing: border-box;
+            min-height: 0;
+            cursor: pointer;
+        }
+
+        /* 视图图层 */
+        .view-layer {
+            position: absolute;
+            inset: 0;
+            padding-left: 1.85vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            transition: opacity 0.25s ease;
+        }
+
+        .layer-overview {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+            z-index: 2;
+        }
+
+        .layer-diagram {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .art-stage.show-diagram .layer-overview {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .art-stage.show-diagram .layer-diagram {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+            z-index: 2;
+        }
+
+        /* 高精配图标准容器：绝不超过展台宽高，居中等比缩放 */
+        .hero-render-img {
+            max-width: 96%;
+            max-height: 92%;
+            border-radius: 1.05vh;
+            box-shadow: 0 1.05vh 3.2vh rgba(43, 37, 32, 0.14);
+            border: max(1px, 0.13vh) solid rgba(194, 159, 104, 0.4);
+            object-fit: contain;
+            transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .card-fold.active:hover .hero-render-img {
+            /* 保持稳定无位移，杜绝悬停时引起背景光栅化闪烁 */
+        }
+
+        /* === 图解 1：水位淹没与二十公里大搬迁剖面 === */
+        /* ====================================================
+           三折页右侧交互舞台与考据图解系统 (图解放大 + 纯 vh 响应式排版)
+           ==================================================== */
+
+        /* 考据图解通用容器：自适应撑满高度，图解放大 */
+        .relocation-diagram,
+        .minerals-diagram,
+        .structure-diagram {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 0.52vh 0 0.26vh;
+            box-sizing: border-box;
+            min-height: 0;
+        }
+
+        /* 顶部通栏标题与标识 */
+        .diagram-title-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: max(1px, 0.13vh) dashed rgba(194, 159, 104, 0.45);
+            padding-bottom: 0.52vh;
+            margin-bottom: 0.52vh;
+            flex-shrink: 0;
+            width: 100%;
+            gap: 0.80vh;
+        }
+
+        .diag-title {
+            font-size: 1.52vh;
+            color: var(--c-ink);
+            font-weight: 600;
+            letter-spacing: 0.05vh;
+            white-space: nowrap;
+            overflow: visible;
+            text-overflow: clip;
+            flex-shrink: 0;
+        }
+
+        .diag-tag {
+            font-size: 1.13vh;
+            color: var(--c-zhusha);
+            border: max(1px, 0.13vh) solid rgba(179, 57, 40, 0.65);
+            background: rgba(179, 57, 40, 0.06);
+            padding: 0.13vh 0.65vh;
+            border-radius: 0.40vh;
+            font-weight: 500;
+            letter-spacing: 0.03vh;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        /* 动效线流动 */
+        @keyframes cinnabarFlow {
+            0% { stroke-dashoffset: 120; }
+            100% { stroke-dashoffset: 0; }
+        }
+
+        @keyframes waterFlow {
+            0% { stroke-dashoffset: 0; }
+            100% { stroke-dashoffset: 80; }
+        }
+
+        .cinnabar-flow-line {
+            stroke-dasharray: 8 5;
+            animation: cinnabarFlow 3.5s linear infinite;
+        }
+
+        .water-wave-line {
+            stroke-dasharray: 6 4;
+            animation: waterFlow 8s linear infinite;
+        }
+
+        /* 古籍舆图 & 规矩图画板：flex 弹性自适应，彻底放大图解展示区域 */
+        .treatise-board {
+            flex: 1 1 auto;
+            min-height: 0;
+            width: 100%;
+            background: #faf6ed;
+            border: max(1px, 0.13vh) solid rgba(194, 159, 104, 0.45);
+            border-radius: 0.80vh;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 0 2.6vh rgba(194, 159, 104, 0.12);
+        }
+
+        .relocation-svg, .structure-svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* ====================================================
+           折页 1 底部：水库迁移现代横向贯通时间线 (严禁汉字年份，采用阿拉伯数字)
+           ==================================================== */
+        .relocation-timeline {
+            position: relative;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-top: 0.65vh;
+            padding: 0.65vh 1.85vh 0.52vh;
+            background: rgba(250, 246, 237, 0.96);
+            border: max(1px, 0.13vh) solid rgba(194, 159, 104, 0.42);
+            border-radius: 0.80vh;
+            box-shadow: 0 0.13vh 0.52vh rgba(43, 37, 32, 0.04);
+            flex-shrink: 0;
+            box-sizing: border-box;
+        }
+
+        .timeline-axis-track {
+            position: absolute;
+            top: 1.46vh;
+            left: 4.25vh;
+            right: 4.25vh;
+            height: max(1.5px, 0.20vh);
+            background: linear-gradient(90deg, rgba(179, 57, 40, 0.6) 0%, rgba(194, 159, 104, 0.75) 50%, rgba(179, 57, 40, 0.6) 100%);
+            z-index: 1;
+        }
+
+        .timeline-milestone {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            flex: 1;
+            padding: 0 0.52vh;
+        }
+
+        .milestone-dot {
+            width: 1.60vh;
+            height: 1.60vh;
+            border-radius: 50%;
+            background: #faf6ed;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 0.26vh;
+            position: relative;
+        }
+
+        .dot-inner {
+            width: 0.65vh;
+            height: 0.65vh;
+            border-radius: 50%;
+            background: var(--c-zhusha);
+            box-shadow: 0 0 0.52vh rgba(179, 57, 40, 0.65);
+        }
+
+        .dot-ring {
+            position: absolute;
+            inset: 0;
+            border: max(1px, 0.13vh) solid rgba(179, 57, 40, 0.45);
+            border-radius: 50%;
+        }
+
+        .milestone-text {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .milestone-year {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+            font-size: 1.46vh;
+            font-weight: 700;
+            color: var(--c-zhusha);
+            line-height: 1.1;
+            margin-bottom: 0.20vh;
+            letter-spacing: 0.05vh;
+        }
+
+        .milestone-head {
+            font-size: 1.20vh;
+            font-weight: 600;
+            color: var(--c-ink);
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+
+        .milestone-detail {
+            font-size: 1.06vh;
+            color: #726354;
+            line-height: 1.2;
+            margin-top: 0.13vh;
+            white-space: nowrap;
+        }
+
+        /* ====================================================
+           折页 2 右侧：六大矿物微观色谱图解台
+           ==================================================== */
+        .mural-canvas-stage {
+            flex: 1 1 auto;
+            min-height: 0;
+            width: 100%;
+            border: max(1px, 0.13vh) solid rgba(194, 159, 104, 0.45);
+            border-radius: 0.80vh;
+            background: #faf6ed;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 0 2.4vh rgba(194, 159, 104, 0.12);
+        }
+
+        .mural-canvas-stage img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            transition: all 0.25s ease;
+        }
+
+        .diagram-caption-pill {
+            position: static;
+            transform: none;
+            align-self: center;
+            margin: 0.52vh auto 0.40vh;
+            background: rgba(35, 30, 25, 0.90);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            color: #f7f2e7;
+            font-size: 1.13vh;
+            padding: 0.33vh 1.33vh;
+            border-radius: 1.05vh;
+            letter-spacing: 0.03vh;
+            pointer-events: none;
+            white-space: nowrap;
+            max-width: 98%;
+            border: max(1px, 0.13vh) solid rgba(194, 159, 104, 0.45);
+            box-shadow: 0 0.13vh 0.52vh rgba(0,0,0,0.18);
+            transition: all 0.2s ease;
+            text-align: center;
+            box-sizing: border-box;
+            flex-shrink: 0;
+        }
+
+        .specimens-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 0.40vh;
+            margin-top: 0.65vh;
+            width: 100%;
+            box-sizing: border-box;
+            flex-shrink: 0;
+        }
+
+        .specimen-card {
+            background: rgba(253, 250, 243, 0.96);
+            border: max(1px, 0.13vh) solid rgba(194, 159, 104, 0.4);
+            border-radius: 0.52vh;
+            padding: 0.40vh 0.13vh 0.26vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.13vh;
+            min-width: 0;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 0.13vh 0.52vh rgba(43, 37, 32, 0.04);
+        }
+
+        .specimen-card:hover, .specimen-card.active {
+            border-color: var(--accent-color, var(--c-zhusha));
+            box-shadow: 0 0.40vh 1.05vh rgba(0,0,0,0.12);
+            background: #ffffff;
+        }
+
+        .mineral-crystal {
+            width: 1.33vh;
+            height: 1.33vh;
+            border-radius: 50%;
+            box-shadow: inset 0 0.20vh 0.40vh rgba(255,255,255,0.65), 0 0.20vh 0.52vh rgba(0,0,0,0.18);
+            flex-shrink: 0;
+            margin-bottom: 0.26vh;
+        }
+
+        .mineral-name {
+            font-size: 1.13vh;
+            color: var(--c-ink);
+            font-weight: 600;
+            white-space: nowrap;
+            line-height: 1.1;
+            margin-bottom: 0.13vh;
+        }
+
+        .mineral-usage {
+            font-size: 1.00vh;
+            color: #6e6052;
+            text-align: center;
+            line-height: 1.1;
+            white-space: nowrap;
+        }
+
+        /* ====================================================
+           折页 3 右侧：减柱造力学与视界导流分析
+           ==================================================== */
+        .force-metrics {
+            display: flex;
+            flex-direction: column;
+            gap: 0.46vh;
+            margin-top: 0.65vh;
+            width: 100%;
+            box-sizing: border-box;
+            flex-shrink: 0;
+        }
+
+        .metric-pill {
+            width: 100%;
+            background: rgba(250, 246, 237, 0.96);
+            border: max(1px, 0.13vh) solid rgba(194, 159, 104, 0.42);
+            border-radius: 0.52vh;
+            padding: 0.40vh 1.05vh;
+            font-size: 1.13vh;
+            color: #55483d;
+            line-height: 1.35;
+            box-shadow: 0 0.13vh 0.40vh rgba(43, 37, 32, 0.04);
+            box-sizing: border-box;
+        }
+
+        .metric-pill strong {
+            color: var(--c-zhusha);
+            font-weight: 700;
+            margin-right: 0.52vh;
+            font-size: 1.20vh;
+            letter-spacing: 0.03vh;
+        }
+
+        
+
+        /* 墨滴粒子 Canvas */
+        #ink-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 999;
+        }
+
+
+    
+
+
+        /* ==========================================
+           卷一（介休祆神楼）：屋顶脊兽醒目交互入口 + 中央宽幅中堂立轴
+           全尺寸严格采用 vh 响应式单位，确保本地与线上各分辨率 100% 一致
+           ========================================== */
+        .specimen-hotspot.roof-beast-entry {
+            z-index: 75;
+        }
+
+        .specimen-hotspot.roof-beast-entry .specimen-anchor {
+            width: 6.4vh;
+            height: 6.4vh;
+            margin-top: -3.2vh;
+            margin-left: -3.2vh;
+        }
+
+        .specimen-hotspot.roof-beast-entry .anchor-core {
+            width: 1.52vh;
+            height: 1.52vh;
+            background: #b22d26;
+            border: 0.3vh solid #fff9ec;
+            box-shadow: 0 0 1.8vh rgba(178, 45, 38, 1), 0 0 1.0vh rgba(212, 152, 38, 1), 0 0 2.8vh rgba(255, 248, 230, 0.75);
+        }
+
+        .specimen-hotspot.roof-beast-entry .ripple-outer {
+            width: 4.5vh;
+            height: 4.5vh;
+            border: 0.2vh solid rgba(178, 45, 38, 0.88);
+        }
+
+        .specimen-hotspot.roof-beast-entry .ripple-inner {
+            width: 2.9vh;
+            height: 2.9vh;
+            border: 0.16vh solid rgba(212, 152, 38, 0.95);
+        }
+
+        .roof-entry-leader {
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 10.5vh;
+            height: 4.6vh;
+            pointer-events: none;
+            overflow: visible;
+            transition: opacity 0.28s ease;
+        }
+
+        .roof-entry-plaque {
+            position: absolute;
+            left: 9.2vh;
+            bottom: 2.3vh;
+            display: inline-flex;
+            align-items: center;
+            gap: 1.1vh;
+            padding: 0.88vh 1.68vh 0.88vh 1.52vh;
+            background: rgba(252, 247, 237, 0.76);
+            backdrop-filter: blur(1.0vh);
+            -webkit-backdrop-filter: blur(1.0vh);
+            border: max(1px, 0.16vh) solid #2b231d;
+            border-left: max(3px, 0.36vh) solid #b22d26;
+            outline: max(1px, 0.12vh) solid rgba(43, 35, 29, 0.52);
+            outline-offset: -0.36vh;
+            border-radius: 0;
+            box-shadow: 0 0.8vh 2.5vh rgba(25, 18, 12, 0.26);
+            cursor: pointer;
+            pointer-events: auto;
+            white-space: nowrap;
+            transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.28s ease, border-color 0.28s ease, opacity 0.28s ease, background 0.28s ease;
+            animation: roofPlaqueFloat 3.2s ease-in-out infinite;
+        }
+
+        /* 当深度交互节点被点击激活进入特写（如卷五殿心朝元图透镜展开）时，入口引线与铭牌自动隐退避让 */
+        .specimen-hotspot.roof-beast-entry.active .roof-entry-leader,
+        .specimen-hotspot.roof-beast-entry.pinned .roof-entry-leader,
+        .specimen-hotspot.roof-beast-entry.active .roof-entry-plaque,
+        .specimen-hotspot.roof-beast-entry.pinned .roof-entry-plaque {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        @keyframes roofPlaqueFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-0.45vh); }
+        }
+
+        .roof-entry-plaque:hover {
+            transform: translateY(-0.3vh) scale(1.03);
+            background: rgba(255, 253, 248, 0.88);
+            border-color: #b22d26;
+            outline-color: rgba(178, 45, 38, 0.65);
+            box-shadow: 0 1.2vh 3.0vh rgba(178, 45, 38, 0.30);
+        }
+
+        .roof-entry-text-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.22vh;
+        }
+
+        .roof-entry-main-title {
+            font-size: 1.58vh;
+            font-weight: 700;
+            color: #261e18;
+            letter-spacing: 0.1vh;
+            line-height: 1.2;
+        }
+
+        .roof-entry-sub-hint {
+            font-size: 1.18vh;
+            font-weight: 600;
+            color: #8c6a2e;
+            letter-spacing: 0.08vh;
+            line-height: 1.2;
+        }
+
+        .roof-entry-arrow {
+            font-size: 1.65vh;
+            color: #b22d26;
+            font-weight: 700;
+            margin-left: 0.25vh;
+            transition: transform 0.25s ease;
+        }
+
+        .roof-entry-plaque:hover .roof-entry-arrow {
+            transform: translateX(0.45vh);
+        }
+
+        /* 中央宽幅中堂立轴遮罩层 */
+        #scene1-beast-scroll-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 88;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at 50% 50%, rgba(26, 21, 17, 0.38) 0%, rgba(18, 14, 11, 0.68) 100%);
+            backdrop-filter: blur(0.6vh);
+            -webkit-backdrop-filter: blur(0.6vh);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+            font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Serif SC", serif;
+        }
+
+        #scene1-beast-scroll-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* 立轴主体外框（含天杆、地轴与右侧悬签） */
+        .s1-scroll-assembly {
+            position: relative;
+            width: 64vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transform: translateY(-2.5vh) scale(0.96);
+            transition: transform 0.48s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+
+        #scene1-beast-scroll-overlay.active .s1-scroll-assembly {
+            transform: translateY(0) scale(1);
+        }
+
+        /* 顶部天杆 (Heaven Rod) */
+        .s1-scroll-heaven-rod {
+            width: 67.6vh;
+            height: 1.6vh;
+            background: linear-gradient(180deg, #4a382b 0%, #261c15 55%, #17110c 100%);
+            border-radius: 0.8vh;
+            box-shadow: 0 0.6vh 1.6vh rgba(0, 0, 0, 0.45), inset 0 0.15vh 0.2vh rgba(255, 235, 200, 0.22);
+            position: relative;
+            z-index: 5;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .s1-scroll-heaven-rod::before,
+        .s1-scroll-heaven-rod::after {
+            content: "";
+            width: 1.8vh;
+            height: 1.8vh;
+            background: linear-gradient(135deg, #e0b86c 0%, #9a7029 100%);
+            border-radius: 0.3vh;
+            box-shadow: 0 0.2vh 0.6vh rgba(0, 0, 0, 0.4);
+        }
+
+        /* 宣纸锦绫画轴本体 */
+        .s1-scroll-paper-body {
+            width: 64vh;
+            background:
+                radial-gradient(circle at 50% 25%, rgba(255, 252, 245, 0.96) 0%, rgba(244, 236, 220, 0.98) 65%, rgba(234, 223, 202, 0.99) 100%);
+            border-left: 1.2vh solid #dfd1b8;
+            border-right: 1.2vh solid #dfd1b8;
+            box-shadow:
+                0 2.2vh 5.5vh rgba(12, 9, 6, 0.52),
+                inset 0 0 0 0.18vh rgba(178, 142, 92, 0.45);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        /* 立轴眉头（顶部题签栏） */
+        .s1-scroll-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.15vh 2.4vh;
+            background: linear-gradient(90deg, rgba(228, 215, 192, 0.75) 0%, rgba(241, 232, 215, 0.5) 50%, rgba(228, 215, 192, 0.75) 100%);
+            border-bottom: 0.15vh solid rgba(178, 142, 92, 0.4);
+        }
+
+        .s1-header-left {
+            display: flex;
+            align-items: center;
+            gap: 1.1vh;
+        }
+
+        .s1-header-seal {
+            padding: 0.3vh 0.8vh;
+            background: #b22d26;
+            color: #fffaf0;
+            font-size: 1.2vh;
+            font-weight: 700;
+            border-radius: 0.3vh;
+            letter-spacing: 0.12vh;
+        }
+
+        .s1-header-title {
+            font-size: 1.72vh;
+            font-weight: 700;
+            color: #2b231d;
+            letter-spacing: 0.15vh;
+        }
+
+        .s1-header-close {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5vh;
+            padding: 0.42vh 1.2vh;
+            background: rgba(43, 35, 29, 0.07);
+            border: 0.14vh solid rgba(138, 115, 86, 0.45);
+            border-radius: 0.5vh;
+            font-size: 1.28vh;
+            font-weight: 600;
+            color: #4a3e33;
+            cursor: pointer;
+            transition: all 0.22s ease;
+        }
+
+        .s1-header-close:hover {
+            background: #b22d26;
+            border-color: #b22d26;
+            color: #fffaf0;
+        }
+
+        /* 上画心：神兽微动实况展示区 */
+        .s1-scroll-artwork-stage {
+            position: relative;
+            width: 100%;
+            height: 33.0vh;
+            background: radial-gradient(circle at 50% 50%, #fbf7ef 0%, #eae0cc 100%);
+            border-bottom: 0.18vh dashed rgba(178, 142, 92, 0.55);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        /* 宋式画心四角锦框线 */
+        .s1-scroll-artwork-stage::before {
+            content: "";
+            position: absolute;
+            inset: 1.1vh 1.8vh;
+            border: 0.14vh solid rgba(178, 142, 92, 0.38);
+            pointer-events: none;
+            z-index: 6;
+        }
+
+        .s1-poster-img {
+            position: relative;
+            z-index: 4;
+            width: 90%;
+            height: 90%;
+            object-fit: contain;
+            filter: drop-shadow(0 1.2vh 2.2vh rgba(43, 35, 29, 0.18));
+            transition: opacity 0.28s ease, transform 0.35s ease;
+            pointer-events: none;
+        }
+
+        .s1-live-video {
+            position: absolute;
+            width: 90%;
+            height: 90%;
+            object-fit: contain;
+            display: none;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        /* 画心左右翻页微钮 */
+        .s1-stage-nav-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3.6vh;
+            height: 3.6vh;
+            border-radius: 50%;
+            background: rgba(251, 246, 236, 0.85);
+            border: 0.14vh solid rgba(178, 142, 92, 0.55);
+            color: #4a3e33;
+            font-size: 2.0vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 10;
+            transition: all 0.22s ease;
+            box-shadow: 0 0.3vh 0.9vh rgba(43, 35, 29, 0.12);
+        }
+
+        .s1-stage-nav-btn:hover {
+            background: #b22d26;
+            border-color: #b22d26;
+            color: #fffaf0;
+        }
+
+        .s1-stage-nav-btn.prev { left: 2.6vh; }
+        .s1-stage-nav-btn.next { right: 2.6vh; }
+
+        /* 下横排考据区（严格从左至右横向阅读，同款网页正文字体） */
+        .s1-scroll-lore-body {
+            padding: 1.65vh 2.6vh 1.85vh 2.6vh;
+            display: flex;
+            flex-direction: column;
+            gap: 1.15vh;
+            box-sizing: border-box;
+        }
+
+        .s1-lore-title-bar {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 1.2vh;
+            border-bottom: 0.15vh solid rgba(178, 142, 92, 0.35);
+            padding-bottom: 0.75vh;
+        }
+
+        .s1-lore-main-title {
+            font-size: 2.2vh;
+            font-weight: 700;
+            color: #1f1914;
+            letter-spacing: 0.1vh;
+            margin: 0;
+        }
+
+        .s1-lore-meta-tag {
+            font-size: 1.22vh;
+            font-weight: 600;
+            color: #b22d26;
+            background: rgba(178, 45, 38, 0.08);
+            border: 0.12vh solid rgba(178, 45, 38, 0.28);
+            padding: 0.25vh 0.9vh;
+            border-radius: 0.4vh;
+            letter-spacing: 0.08vh;
+            white-space: nowrap;
+        }
+
+        /* 四项工艺与规制胶囊（2x2 横向网格） */
+        .s1-metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.7vh 1.15vh;
+        }
+
+        .s1-metric-pill {
+            display: flex;
+            align-items: center;
+            gap: 0.55vh;
+            background: rgba(246, 239, 225, 0.85);
+            border: 0.12vh solid rgba(194, 159, 104, 0.42);
+            border-radius: 0.45vh;
+            padding: 0.5vh 0.95vh;
+            box-sizing: border-box;
+        }
+
+        .s1-pill-label {
+            font-size: 1.2vh;
+            font-weight: 700;
+            color: #8c6a2e;
+            white-space: nowrap;
+        }
+
+        .s1-pill-val {
+            font-size: 1.3vh;
+            font-weight: 600;
+            color: #2b231d;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* 特征解密与建筑文化（横排双栏段，正文重点统一采用浓墨黑色加粗） */
+        .s1-lore-sections {
+            display: flex;
+            flex-direction: column;
+            gap: 0.95vh;
+        }
+
+        .s1-lore-section-box {
+            background: rgba(247, 241, 229, 0.68);
+            border-left: 0.35vh solid #2b231d;
+            padding: 0.85vh 1.3vh;
+            border-radius: 0 0.5vh 0.5vh 0;
+        }
+
+        .s1-lore-sec-heading {
+            font-size: 1.3vh;
+            font-weight: 700;
+            color: #171310;
+            margin-bottom: 0.3vh;
+            letter-spacing: 0.08vh;
+        }
+
+        .s1-lore-sec-content {
+            font-size: 1.34vh;
+            color: #2b231d;
+            line-height: 1.6;
+            text-align: justify;
+            letter-spacing: 0.04vh;
+        }
+
+        .s1-lore-sec-content strong,
+        .s1-lore-sec-content .highlight-zhusha {
+            color: #171310;
+            font-weight: 700;
+            background: none;
+            padding: 0;
+        }
+
+        /* 立轴标题与右侧名签生僻字上方拼音注音 */
+        .s1-header-title ruby,
+        .s1-lore-main-title ruby,
+        .s1-tag-label ruby {
+            ruby-position: over;
+            ruby-align: center;
+            margin: 0 0.03em;
+        }
+
+        .s1-header-title rt,
+        .s1-lore-main-title rt {
+            font-size: 1.08vh;
+            font-weight: 600;
+            color: #6a5640;
+            letter-spacing: 0.02vh;
+            line-height: 1.1;
+        }
+
+        .s1-tag-label rt {
+            font-size: 1.02vh;
+            font-weight: 600;
+            color: #6a5640;
+            letter-spacing: 0.02vh;
+            line-height: 1.05;
+        }
+
+        .s1-beast-tag.active .s1-tag-label rt {
+            color: rgba(255, 250, 240, 0.92);
+        }
+
+        /* 底部地轴与玉轴头 (Earth Roller) */
+        .s1-scroll-earth-roller {
+            width: 69.2vh;
+            height: 2.1vh;
+            background: linear-gradient(180deg, #523e2f 0%, #2b2018 52%, #18110c 100%);
+            border-radius: 1.05vh;
+            box-shadow: 0 1.0vh 2.4vh rgba(0, 0, 0, 0.55), inset 0 0.18vh 0.25vh rgba(255, 235, 200, 0.25);
+            position: relative;
+            z-index: 5;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .s1-scroll-earth-roller::before,
+        .s1-scroll-earth-roller::after {
+            content: "";
+            width: 2.6vh;
+            height: 2.3vh;
+            background: linear-gradient(135deg, #f3ead8 0%, #cbb894 55%, #9e8863 100%);
+            border-radius: 0.45vh;
+            box-shadow: 0 0.3vh 0.8vh rgba(0, 0, 0, 0.45);
+        }
+
+        /* 立轴右侧外挂 5 枚神兽切换名签（无红章数字，带拼音注音） */
+        .s1-hanging-tags-rail {
+            position: absolute;
+            left: 100%;
+            top: 7.2vh;
+            display: flex;
+            flex-direction: column;
+            gap: 1.15vh;
+            z-index: 4;
+            margin-left: -0.3vh;
+        }
+
+        .s1-beast-tag {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 13.8vh;
+            padding: 1.05vh 1.3vh 0.95vh 1.3vh;
+            background: linear-gradient(90deg, #e5d8c1 0%, #f4ecdc 100%);
+            border: 0.15vh solid rgba(168, 136, 90, 0.55);
+            border-left: none;
+            border-radius: 0 0.7vh 0.7vh 0;
+            box-shadow: 0.6vh 0.5vh 1.5vh rgba(20, 15, 10, 0.28);
+            cursor: pointer;
+            transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.25s ease, border-color 0.25s ease;
+            box-sizing: border-box;
+        }
+
+        .s1-beast-tag:hover {
+            transform: translateX(0.6vh);
+            background: linear-gradient(90deg, #efe4d0 0%, #fbf6ec 100%);
+            border-color: #b22d26;
+        }
+
+        .s1-beast-tag.active {
+            transform: translateX(1.0vh);
+            background: linear-gradient(90deg, #b22d26 0%, #98221c 100%);
+            border-color: #e0b86c;
+            box-shadow: 0.8vh 0.6vh 1.8vh rgba(178, 45, 38, 0.38);
+        }
+
+        .s1-tag-label {
+            font-size: 1.46vh;
+            font-weight: 700;
+            color: #2b231d;
+            letter-spacing: 0.1vh;
+            white-space: nowrap;
+            line-height: 1.2;
+        }
+
+        .s1-beast-tag.active .s1-tag-label {
+            color: #fffaf0;
+        }
