@@ -103,10 +103,10 @@
             font-family: "STXingkai", "Xingkai SC", "华文行楷", "方正行楷简体", "STKaiti", "KaiTi", serif;
         }
 
-        /* 独立中间分割竖线：随整体基准位于 25vh，高度锁定 36.24vh (1.2倍) */
+        /* 独立中间分割竖线：随整体基准位于 25vh，高度随「滚动深入」下移同步延展 */
         .insc-divider-line {
             width: max(1px, 0.18vh);
-            height: 36.24vh; /* 与题跋全部高度严格等比对应 (1.2倍) */
+            height: 42.1vh;
             background: rgba(38, 32, 27, 0.22);
             flex-shrink: 0;
             align-self: flex-start;
@@ -156,13 +156,13 @@
             transform: translateX(-0.45vh); /* 抵消竖排文本 baseline 偏置，与文字垂直中轴严格对齐 */
         }
 
-        /* 引导提示：置于中列“风”字正下方 (加深墨色，右侧伴随极简墨线滚轮+朱砂滚珠下拨动画) */
+        /* 引导提示：置于中列“风”字正下方，margin-top 拉开至 4.2vh (预留约两字呼吸留白)，右侧鼠标图标同步对齐“入”字底边 */
         .insc-hint {
             position: relative;
-            margin-top: 1.24vh;
-            font-size: 1.68vh; /* 1.2倍 */
+            margin-top: 4.2vh;
+            font-size: 2.16vh;
             letter-spacing: 0.08em;
-            color: #2b231d; /* 浓焦墨色，彻底清晰显眼，不再发浅 */
+            color: #2b231d; /* 浓焦墨色，彻底清晰显眼 */
             animation: insc-hint-breathe 2.6s ease-in-out infinite;
             display: inline-block;
             vertical-align: middle;
@@ -170,8 +170,8 @@
 
         .hint-arrow {
             display: inline-block;
-            font-size: 1.39vh; /* 1.2倍 */
-            margin-top: 0.2vh;
+            font-size: 1.68vh;
+            margin-top: 0.24vh;
             vertical-align: middle;
         }
 
@@ -180,14 +180,14 @@
             display: inline-block;
         }
 
-        /* 滚动深入右侧：极简墨线滚轮 + 朱砂滚珠下拨动画（无底部红箭头，向右平移且底部与“入”字齐平） */
+        /* 滚动深入右侧：极简墨线滚轮 + 朱砂滚珠下拨动画（随文字放大同步微调，底部与放大后的“入”字末笔严格齐平） */
         .scroll-wheel-anim {
             position: absolute;
             left: 100%;
-            bottom: 0.12vh;
-            margin-left: 1.95vh;
-            width: 2.35vh;
-            height: 3.35vh;
+            bottom: 0.22vh;
+            margin-left: 2.05vh;
+            width: 2.65vh;
+            height: 3.78vh;
             display: inline-flex;
             align-items: flex-end;
             justify-content: center;
@@ -227,6 +227,377 @@
         @keyframes insc-hint-breathe {
             0%, 100% { opacity: 0.70; transform: translateY(0); }
             50% { opacity: 1.0; transform: translateY(2px); }
+        }
+
+        /* ============================================================== */
+        /* 观景位 0：开篇「三晋天工 · 三大古建总览」居中三联乌丝栏画卷 */
+        /* ============================================================== */
+        #overview-stop0 {
+            position: fixed;
+            inset: 0;
+            z-index: 86;
+            display: none;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.38s cubic-bezier(0.2, 0.8, 0.2, 1);
+            user-select: none;
+            font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "WenQuanYi Micro Hei", "Noto Sans SC", sans-serif;
+        }
+
+        #overview-stop0.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #overview-stop0 .overview-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(20, 16, 12, 0.34);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+        }
+
+        #overview-stop0 .overview-panel {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) translateZ(0);
+            width: min(88vw, 156vh);
+            height: 81.5vh;
+            background: rgba(247, 241, 229, 0.94);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: max(1px, 0.16vh) solid #2b231d;
+            outline: max(1px, 0.12vh) solid rgba(43, 35, 29, 0.48);
+            outline-offset: -0.45vh;
+            border-radius: 0;
+            box-shadow: 0 2.0vh 5.2vh rgba(28, 22, 16, 0.28);
+            padding: 2.1vh 3.2vh 2.1vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .overview-close-btn {
+            position: absolute;
+            top: 1.85vh;
+            right: 2.2vh;
+            width: 3.45vh;
+            height: 3.45vh;
+            border: max(1px, 0.14vh) solid rgba(43, 35, 29, 0.55);
+            border-radius: 0;
+            background: rgba(252, 247, 237, 0.82);
+            color: #3d3128;
+            font-size: 1.72vh;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            z-index: 10;
+        }
+
+        .overview-close-btn:hover {
+            background: #b22d26;
+            border-color: #b22d26;
+            color: #fffdf8;
+        }
+
+        .overview-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 1.25vh;
+            border-bottom: max(1px, 0.14vh) dashed rgba(178, 142, 92, 0.52);
+            flex-shrink: 0;
+        }
+
+        .overview-header-left {
+            display: flex;
+            align-items: center;
+            gap: 1.45vh;
+        }
+
+        .overview-seal-badge {
+            padding: 0.45vh 1.05vh;
+            background: #b22d26;
+            color: #fffaf0;
+            font-size: 1.38vh;
+            font-weight: 700;
+            letter-spacing: 0.18vh;
+            border-radius: 0;
+            flex-shrink: 0;
+        }
+
+        .overview-title-group h2 {
+            font-size: 2.38vh;
+            font-weight: 700;
+            color: #1f1914;
+            letter-spacing: 0.32vh;
+            margin-bottom: 0.24vh;
+        }
+
+        .overview-title-group p {
+            font-size: 1.42vh;
+            color: #6a5a4b;
+            letter-spacing: 0.12vh;
+        }
+
+        .overview-cards-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2.1vh;
+            flex: 1;
+            min-height: 0;
+            margin-top: 1.45vh;
+        }
+
+        .overview-bldg-card {
+            background: rgba(253, 250, 243, 0.88);
+            border: max(1px, 0.14vh) solid rgba(43, 35, 29, 0.58);
+            outline: max(1px, 0.11vh) solid rgba(194, 159, 104, 0.48);
+            outline-offset: -0.34vh;
+            border-radius: 0;
+            padding: 1.45vh 1.85vh 1.45vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-sizing: border-box;
+            transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+            cursor: default;
+        }
+
+        .overview-bldg-card:hover {
+            background: rgba(255, 253, 249, 0.96);
+            border-color: rgba(178, 45, 38, 0.68);
+            outline-color: rgba(178, 45, 38, 0.42);
+            box-shadow: 0 0.8vh 2.2vh rgba(43, 35, 29, 0.10);
+        }
+
+        .ov-card-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 0.72vh;
+            border-bottom: max(1px, 0.13vh) dashed rgba(194, 159, 104, 0.45);
+            flex-shrink: 0;
+        }
+
+        .ov-vol-tag {
+            font-size: 1.42vh;
+            font-weight: 700;
+            color: #b22d26;
+            border-left: max(2.4px, 0.28vh) solid #b22d26;
+            padding-left: 0.65vh;
+            letter-spacing: 0.14vh;
+        }
+
+        .ov-era-tag {
+            font-size: 1.32vh;
+            font-weight: 600;
+            color: #855318;
+            letter-spacing: 0.08vh;
+        }
+
+        .ov-card-art {
+            position: relative;
+            width: 100%;
+            height: 20.5vh;
+            margin: 0.85vh 0;
+            background: radial-gradient(circle at 50% 55%, #fbf7ef 0%, #eadfcd 100%);
+            border: max(1px, 0.13vh) solid rgba(194, 159, 104, 0.48);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .ov-card-art img {
+            max-width: 92%;
+            max-height: 92%;
+            object-fit: contain;
+            filter: drop-shadow(0 0.6vh 1.4vh rgba(43, 35, 29, 0.16));
+            transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .overview-bldg-card:hover .ov-card-art img {
+            transform: scale(1.04);
+        }
+
+        .ov-card-title-block {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            margin: 0.25vh 0 0.45vh;
+            flex-shrink: 0;
+        }
+
+        .ov-bldg-name {
+            font-size: 2.35vh;
+            font-weight: 700;
+            color: #171310;
+            letter-spacing: 0.12em;
+            line-height: 1.15;
+            margin: 0 0 0.32vh;
+        }
+
+        .ov-bldg-name ruby {
+            ruby-position: over;
+            ruby-align: center;
+            margin: 0 0.03em;
+        }
+
+        .ov-bldg-name rt {
+            font-size: 1.08vh;
+            font-weight: 600;
+            color: #544538;
+            letter-spacing: 0.02vh;
+            line-height: 1.1;
+        }
+
+        .ov-bldg-sub {
+            font-size: 1.34vh;
+            font-weight: 600;
+            color: #855318;
+            letter-spacing: 0.10vh;
+        }
+
+        .ov-card-desc {
+            font-size: 1.36vh;
+            line-height: 1.72;
+            color: #3d332a;
+            text-align: justify;
+            letter-spacing: 0.04vh;
+            margin: 0.35vh 0;
+        }
+
+        .ov-card-desc strong {
+            color: #171310;
+            font-weight: 700;
+        }
+
+        .ov-card-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.65vh;
+            padding-top: 0.78vh;
+            border-top: max(1px, 0.13vh) dashed rgba(194, 159, 104, 0.42);
+            flex-shrink: 0;
+        }
+
+        .ov-metric-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0.58vh 0.35vh;
+            background: rgba(244, 236, 220, 0.72);
+            border: max(1px, 0.12vh) solid rgba(194, 159, 104, 0.42);
+            border-top: max(2px, 0.22vh) solid #2b231d;
+            border-radius: 0;
+            text-align: center;
+        }
+
+        .ov-m-val {
+            font-size: 1.40vh;
+            font-weight: 700;
+            color: #171310;
+            white-space: nowrap;
+            line-height: 1.2;
+        }
+
+        .ov-m-lbl {
+            font-size: 1.12vh;
+            color: #6e5d4f;
+            margin-top: 0.20vh;
+            white-space: nowrap;
+            line-height: 1.15;
+        }
+
+        /* 每张卡片底部：居中单行营造看点铭牌（取消重复左侧红字，纯净居中对齐） */
+        .ov-card-seq-tag {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 0.68vh 1.15vh;
+            margin-top: 0.68vh;
+            background: rgba(244, 236, 220, 0.62);
+            border: max(1px, 0.13vh) solid rgba(43, 35, 29, 0.38);
+            border-radius: 0;
+            box-sizing: border-box;
+            flex-shrink: 0;
+            text-align: center;
+        }
+
+        .ov-seq-hint {
+            font-size: 1.32vh;
+            font-weight: 700;
+            color: #2b231d;
+            letter-spacing: 0.12vh;
+        }
+
+        /* 底部通栏：鼠标滚轮游历长卷核心操作印象引导栏 */
+        .overview-scroll-guide {
+            margin-top: 1.25vh;
+            padding: 0.88vh 2.2vh;
+            background: rgba(252, 247, 237, 0.78);
+            border: max(1px, 0.15vh) solid #2b231d;
+            outline: max(1px, 0.11vh) solid rgba(43, 35, 29, 0.45);
+            outline-offset: -0.32vh;
+            border-radius: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1.25vh;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: background 0.22s ease, border-color 0.22s ease;
+        }
+
+        .overview-scroll-guide:hover {
+            background: rgba(255, 253, 248, 0.94);
+            border-color: #b22d26;
+        }
+
+        .ov-scroll-wheel-icon {
+            width: 2.15vh;
+            height: 3.10vh;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .ov-scroll-wheel-icon svg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+
+        .ov-scroll-wheel-icon .wheel-bead {
+            animation: wheelBeadDrop 1.65s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+
+        .ov-scroll-guide-text {
+            font-size: 1.48vh;
+            color: #2b231d;
+            letter-spacing: 0.12vh;
+        }
+
+        .ov-scroll-guide-text strong {
+            color: #b22d26;
+            font-weight: 700;
+        }
+
+        .ov-scroll-guide-sub {
+            font-size: 1.26vh;
+            color: #786655;
+            letter-spacing: 0.06vh;
         }
 
         /* 观景位 1/2/3：左上角三大古建主标 (放大字号 + 建筑名上侧汉语拼音注音 + 卷内连续常驻) */
@@ -2830,4 +3201,182 @@
 
         .s1-beast-tag.active .s1-tag-label {
             color: #fffaf0;
+        }
+
+        /* ============================================================== */
+        /* 移动端与触屏平板全局自适应（自动 90° 横向展卷 + 触控纯净模式） */
+        /* ============================================================== */
+        /* 1. 移动端/触屏设备：彻底关闭桌面毛笔光标与水墨粒子 Canvas，恢复原生零延迟触控 */
+        @media (hover: none), (pointer: coarse) {
+            * {
+                cursor: auto !important;
+                -webkit-tap-highlight-color: transparent;
+            }
+            #ink-cursor,
+            #ink-canvas {
+                display: none !important;
+                opacity: 0 !important;
+                visibility: hidden !important;
+                pointer-events: none !important;
+            }
+            /* 移动端扩大热点、苍松/仙鹤文字引注与关闭按钮的热区，方便单指点按 */
+            .specimen-anchor {
+                padding: 1.2vh;
+            }
+            .crane-hotspot {
+                padding: 1.6vh 2.2vh !important;
+                margin-left: -1.8vh !important;
+                margin-top: -1.6vh !important;
+                z-index: 82 !important;
+            }
+            .overview-close-btn,
+            .close-btn,
+            .s1-header-close {
+                min-width: 4.4vh;
+                min-height: 4.4vh;
+            }
+        }
+
+        /* 2. 手机竖屏握持时：无需开启系统旋转锁，自动旋转 90° 满屏横置展开 16:9 长卷 */
+        /*    并将全局 vh/vw 单位自动重映射为旋转后的逻辑横屏宽高，所有弹窗/经折装等比适配 */
+        html.mobile-portrait-rotated {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #f2ebd9;
+        }
+
+        html.mobile-portrait-rotated body {
+            position: fixed !important;
+            top: 0 !important;
+            left: 100vw !important;
+            width: 100vh !important;
+            height: 100vw !important;
+            transform-origin: 0 0 !important;
+            transform: rotate(90deg) !important;
+            overflow: hidden !important;
+            touch-action: none;
+        }
+
+        html.mobile-portrait-rotated #webgl-canvas {
+            width: 100vh !important;
+            height: 100vw !important;
+        }
+
+        /* 手机竖屏旋转 90° 后：原 vh 对应现视口宽度 (1vw)，原 vw 对应现视口高度 (1vh) */
+        html.mobile-portrait-rotated #inscription-stop0 {
+            top: 25vw;
+            left: 55vh;
+            gap: 2.4vw;
+        }
+        html.mobile-portrait-rotated .insc-divider-line {
+            height: 42.1vw;
+        }
+        html.mobile-portrait-rotated .insc-title-col {
+            font-size: 2.88vw;
+            padding-top: 0.92vw;
+        }
+        html.mobile-portrait-rotated .insc-poem-col {
+            font-size: 2.33vw;
+            padding-top: 0.92vw;
+        }
+        html.mobile-portrait-rotated .insc-seal {
+            margin-top: 0.92vw;
+            width: 2.23vw;
+            height: 2.59vw;
+        }
+        html.mobile-portrait-rotated .insc-hint {
+            margin-top: 4.2vw;
+            font-size: 2.16vw;
+        }
+        html.mobile-portrait-rotated .hint-arrow {
+            font-size: 1.68vw;
+        }
+        html.mobile-portrait-rotated .scroll-wheel-anim {
+            margin-left: 2.05vw;
+            width: 2.65vw;
+            height: 3.78vw;
+        }
+        html.mobile-portrait-rotated #chapter-badge {
+            top: 4.2vw;
+            left: 5.25vw;
+        }
+        html.mobile-portrait-rotated #chapter-badge .badge-line {
+            height: 11.2vw;
+        }
+        html.mobile-portrait-rotated #chapter-badge .badge-title {
+            font-size: 3.45vw;
+        }
+        html.mobile-portrait-rotated #chapter-badge .badge-title rt {
+            font-size: 1.38vw;
+        }
+        html.mobile-portrait-rotated #chapter-badge .badge-seal {
+            width: 3.1vw;
+            height: 3.1vw;
+        }
+        html.mobile-portrait-rotated #chapter-badge .badge-sub {
+            font-size: 1.95vw;
+        }
+        html.mobile-portrait-rotated #chapter-badge .badge-hint {
+            font-size: 1.62vw;
+        }
+        html.mobile-portrait-rotated #overview-stop0 .overview-panel {
+            width: min(88vh, 156vw);
+            height: 83vw;
+            padding: 1.8vw 2.8vw;
+        }
+        html.mobile-portrait-rotated #narrative-stop2 .fold-book-anchor {
+            right: calc(50vh - 50.5vw);
+        }
+        html.mobile-portrait-rotated #narrative-stop2:not(.expanded) .fold-book-anchor {
+            right: 8vh;
+        }
+        html.mobile-portrait-rotated #narrative-stop4 {
+            width: 100vh !important;
+            height: 100vw !important;
+        }
+        html.mobile-portrait-rotated #narrative-stop4.active .glass-panel {
+            width: min(88vh, 152vw);
+            height: 78vw;
+        }
+        html.mobile-portrait-rotated #narrative-stop2 {
+            width: 100vh !important;
+            height: 100vw !important;
+        }
+        html.mobile-portrait-rotated #scene1-beast-scroll-overlay {
+            width: 100vh !important;
+            height: 100vw !important;
+        }
+        html.mobile-portrait-rotated #scene1-beast-scroll-overlay .s1-scroll-assembly {
+            transform: scale(0.86);
+            transform-origin: center center;
+        }
+        html.mobile-portrait-rotated .crane-prompt-text {
+            font-size: 1.95vw;
+        }
+        html.mobile-portrait-rotated .crane-prompt-arrow {
+            font-size: 1.65vw;
+        }
+
+        /* 手机原生横屏 (小高度如 360px~440px) 下弹窗微缩放防溢出 */
+        @media screen and (max-height: 500px) and (orientation: landscape) {
+            body {
+                touch-action: none;
+            }
+            #overview-stop0 .overview-panel {
+                width: min(92vw, 162vh);
+                height: 86vh;
+                padding: 1.6vh 2.4vh;
+            }
+            #narrative-stop4.active .glass-panel {
+                width: min(92vw, 158vh);
+                height: 84vh;
+            }
+            #scene1-beast-scroll-overlay .s1-scroll-assembly {
+                transform: scale(0.90);
+                transform-origin: center center;
+            }
         }

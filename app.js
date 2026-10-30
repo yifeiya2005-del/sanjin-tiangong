@@ -26,17 +26,50 @@ const loadingBar = document.getElementById('loading-bar');
             document.documentElement.style.setProperty('--seal-bg', `url("${ELEMENT_ASSETS.hongyin}")`);
         }
 
-        // 1. 初始化场景与渲染器
+        // 1. 初始化场景与渲染器（支持移动端自动 90° 横屏展卷与触控纯净模式）
+        const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+        let isPortraitRotated = false;
+        let viewW = window.innerWidth;
+        let viewH = window.innerHeight;
+
+        function updateViewportMetrics() {
+            const rawW = window.innerWidth;
+            const rawH = window.innerHeight;
+            if (rawH > rawW && rawW <= 920) {
+                isPortraitRotated = true;
+                document.documentElement.classList.add('mobile-portrait-rotated');
+                viewW = rawH;
+                viewH = rawW;
+            } else {
+                isPortraitRotated = false;
+                document.documentElement.classList.remove('mobile-portrait-rotated');
+                viewW = rawW;
+                viewH = rawH;
+            }
+        }
+        updateViewportMetrics();
+
+        // 将物理屏幕坐标 (clientX, clientY) 自动映射为当前长卷逻辑横屏坐标 (x, y)
+        function mapClientToLogical(cx, cy) {
+            if (isPortraitRotated) {
+                return {
+                    x: cy,
+                    y: window.innerWidth - cx
+                };
+            }
+            return { x: cx, y: cy };
+        }
+
         const canvas = document.getElementById('webgl-canvas');
         const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: false });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setSize(viewW, viewH);
         renderer.setClearColor(0xf2ebd9, 1.0); // 熟宣纸暖底色
 
         const scene = new THREE.Scene();
 
         // 2. 小红书关键参数：FOV 锁死 26°（中长焦压平纵深，静止为工笔古画，移动流露视差）
-        const camera = new THREE.PerspectiveCamera(26, window.innerWidth / window.innerHeight, 1, 450);
+        const camera = new THREE.PerspectiveCamera(26, viewW / viewH, 1, 450);
         
         // 默认黄金观赏位：主楼清晰显现、山水与树木完整入画
         const cameraOrigin = { x: -35.0, y: 0.0, z: 125.0 };
@@ -797,7 +830,45 @@ const loadingBar = document.getElementById('loading-bar');
         });
         const treeMesh = new THREE.Mesh(treeGeo, treeMat);
         treeMesh.position.set(-48.0, -6.0, 5.0); // 上移 2 个单位 (-8.0 -> -6.0)
+        treeMesh.renderOrder = 72;
         scene.add(treeMesh);
+
+        // [苍松灵韵流光发光层] 尺寸 42×46，峰值强度 0.28，上移3、左移2 (X=-50.5, Y=-5.8)
+        const treeGlowGeo = new THREE.PlaneGeometry(42.0, 46.0);
+        const treeGlowMat = new THREE.ShaderMaterial({
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform float uOpacity;
+                varying vec2 vUv;
+                void main() {
+                    vec2 center = vec2(0.52, 0.48);
+                    vec2 d = (vUv - center) * vec2(1.02, 0.96);
+                    float dist = length(d);
+                    float outerHalo = smoothstep(0.49, 0.08, dist);
+                    float innerCore = smoothstep(0.28, 0.0, dist);
+                    vec3 glowColor = mix(vec3(1.0, 0.85, 0.36), vec3(0.86, 0.34, 0.12), dist * 1.15);
+                    float finalAlpha = (outerHalo * 0.18 + innerCore * 0.10) * uOpacity;
+                    gl_FragColor = vec4(glowColor, finalAlpha);
+                }
+            `,
+            uniforms: {
+                uOpacity: { value: 0.0 }
+            },
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            depthTest: true
+        });
+        const treeGlowMesh = new THREE.Mesh(treeGlowGeo, treeGlowMat);
+        treeGlowMesh.position.set(-50.5, -5.8, 4.92);
+        treeGlowMesh.renderOrder = 71;
+        scene.add(treeGlowMesh);
 
         // [层 8：灵韵流金萤火 (35 枚慢速漫游发光光团：30枚15~30px + 5枚32px，速度减缓至0.8倍，仅在景位 2->3 涌现并在 3 中常驻)]
         const fireflyCount = 35; // 30 枚 + 5 枚大光晕
@@ -942,9 +1013,14 @@ const loadingBar = document.getElementById('loading-bar');
         const brushSvg = document.getElementById('brush-svg');
         const inkCanvas = document.getElementById('ink-canvas');
         const stop4Container = document.getElementById('narrative-stop4');
-        const inkCtx = inkCanvas ? inkCanvas.getContext('2d') : null;
-        let inkWidth = inkCanvas ? (inkCanvas.width = window.innerWidth) : window.innerWidth;
-        let inkHeight = inkCanvas ? (inkCanvas.height = window.innerHeight) : window.innerHeight;
+        // 移动端完全关闭毛笔与水墨粒子 Canvas，仅桌面端启用
+        if (isTouchDevice) {
+            if (inkCursor) inkCursor.style.display = 'none';
+            if (inkCanvas) inkCanvas.style.display = 'none';
+        }
+        const inkCtx = (!isTouchDevice && inkCanvas) ? inkCanvas.getContext('2d') : null;
+        let inkWidth = inkCanvas ? (inkCanvas.width = viewW) : viewW;
+        let inkHeight = inkCanvas ? (inkCanvas.height = viewH) : viewH;
 
         let cursorVisible = false;
         let clientMouseX = -9999, clientMouseY = -9999;
@@ -952,45 +1028,49 @@ const loadingBar = document.getElementById('loading-bar');
         const inkParticles = [];
 
         window.addEventListener('mousemove', (e) => {
-            clientMouseX = e.clientX;
-            clientMouseY = e.clientY;
+            const mapped = mapClientToLogical(e.clientX, e.clientY);
+            clientMouseX = mapped.x;
+            clientMouseY = mapped.y;
 
-            if (!cursorVisible) {
-                if (inkCursor && !isOverMural) inkCursor.style.opacity = '1';
-                cursorVisible = true;
-            }
-            if (inkCursor) {
-                inkCursor.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`;
-            }
+            if (!isTouchDevice) {
+                if (!cursorVisible) {
+                    if (inkCursor && !isOverMural) inkCursor.style.opacity = '1';
+                    cursorVisible = true;
+                }
+                if (inkCursor) {
+                    inkCursor.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`;
+                }
 
-            const dx = clientMouseX - prevMouseX;
-            const dy = clientMouseY - prevMouseY;
-            const dist = Math.sqrt(dx * dx + dy * dy);
+                const dx = clientMouseX - prevMouseX;
+                const dy = clientMouseY - prevMouseY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
 
-            // 第一版水墨与朱砂拖尾算法：平滑滴落深墨 + 朱砂微粒 (当在朝元图壁画透镜区域或展开考据卡片时静默不滴墨，杜绝全屏闪屏)
-            const stop4ActiveNow = (typeof stop4Container !== 'undefined') && stop4Container && stop4Container.classList.contains('active');
-            if (!isOverMural && !stop4ActiveNow && dist > 4 && prevMouseX > 0) {
-                const count = Math.min(3, Math.floor(dist / 12) + 1);
-                for (let i = 0; i < count; i++) {
-                    const ratio = i / count;
-                    inkParticles.push({
-                        x: prevMouseX + dx * ratio + (Math.random() - 0.5) * 4,
-                        y: prevMouseY + dy * ratio + (Math.random() - 0.5) * 4,
-                        radius: Math.random() * 2.8 + 1.2,
-                        maxRadius: Math.random() * 5.0 + 3.0, // 宣纸浸润微扩散
-                        alpha: Math.random() * 0.35 + 0.25,
-                        decay: Math.random() * 0.015 + 0.018,
-                        color: Math.random() > 0.82 ? '179, 57, 40' : '43, 37, 32' // 第一版朱砂比例与深墨色
-                    });
+                // 第一版水墨与朱砂拖尾算法：平滑滴落深墨 + 朱砂微粒 (当在朝元图壁画透镜区域或展开考据卡片时静默不滴墨，杜绝全屏闪屏)
+                const stop4ActiveNow = (typeof stop4Container !== 'undefined') && stop4Container && stop4Container.classList.contains('active');
+                if (!isOverMural && !stop4ActiveNow && dist > 4 && prevMouseX > 0) {
+                    const count = Math.min(3, Math.floor(dist / 12) + 1);
+                    for (let i = 0; i < count; i++) {
+                        const ratio = i / count;
+                        inkParticles.push({
+                            x: prevMouseX + dx * ratio + (Math.random() - 0.5) * 4,
+                            y: prevMouseY + dy * ratio + (Math.random() - 0.5) * 4,
+                            radius: Math.random() * 2.8 + 1.2,
+                            maxRadius: Math.random() * 5.0 + 3.0, // 宣纸浸润微扩散
+                            alpha: Math.random() * 0.35 + 0.25,
+                            decay: Math.random() * 0.015 + 0.018,
+                            color: Math.random() > 0.82 ? '179, 57, 40' : '43, 37, 32' // 第一版朱砂比例与深墨色
+                        });
+                    }
                 }
             }
             prevMouseX = clientMouseX;
             prevMouseY = clientMouseY;
 
-            mouseX = (e.clientX / window.innerWidth) * 2 - 1;
-            mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
+            mouseX = (clientMouseX / viewW) * 2 - 1;
+            mouseY = -(clientMouseY / viewH) * 2 + 1;
+            const stop4ActiveNow2 = (typeof stop4Container !== 'undefined') && stop4Container && stop4Container.classList.contains('active');
             const inStop4Zone = (typeof navProgress !== 'undefined') && Math.abs(navProgress - 4.0) < 0.35;
-            if (stop4ActiveNow || inStop4Zone) {
+            if (stop4ActiveNow2 || inStop4Zone) {
                 targetOffsetX = 0;
                 targetOffsetY = 0;
             } else {
@@ -999,7 +1079,7 @@ const loadingBar = document.getElementById('loading-bar');
             }
 
             // 水墨流体交互：仅在景位 0 (序卷题跋，navProgress <= 0.45) 保留鼠标水墨波纹效果
-            if (navProgress <= 0.45) {
+            if (!isTouchDevice && navProgress <= 0.45) {
                 bgMouseVec2.set(mouseX, mouseY);
                 bgRaycaster.setFromCamera(bgMouseVec2, camera);
                 const intersects = bgRaycaster.intersectObject(bgMesh);
@@ -1019,8 +1099,9 @@ const loadingBar = document.getElementById('loading-bar');
             }
         });
 
-        // 第一版落笔：破墨大墨晕绽放 Bloom 与微压立锋
+        // 第一版落笔：破墨大墨晕绽放 Bloom 与微压立锋（仅桌面端）
         window.addEventListener('mousedown', (e) => {
+            if (isTouchDevice) return;
             if (inkCursor) inkCursor.classList.add('grabbing');
             if (brushSvg) brushSvg.classList.add('active');
             if (isOverMural || e.target.closest('#narrative-stop4')) return;
@@ -1040,6 +1121,7 @@ const loadingBar = document.getElementById('loading-bar');
         });
 
         window.addEventListener('mouseup', () => {
+            if (isTouchDevice) return;
             if (inkCursor) inkCursor.classList.remove('grabbing');
             if (brushSvg) brushSvg.classList.remove('active');
         });
@@ -1079,6 +1161,9 @@ const loadingBar = document.getElementById('loading-bar');
             const s1ScrollEl = document.getElementById('scene1-beast-scroll-overlay');
             if (s1ScrollEl && s1ScrollEl.classList.contains('active')) return;
 
+            const ovStop0El = document.getElementById('overview-stop0');
+            if (ovStop0El && (ovStop0El.classList.contains('active') || ovStop0El.style.display === 'block')) return;
+
             const now = performance.now();
             const timeSinceLastWheel = now - lastWheelTime;
 
@@ -1101,14 +1186,145 @@ const loadingBar = document.getElementById('loading-bar');
             targetNavProgress = Math.max(0.0, Math.min(5.0, targetNavProgress));
         }, { passive: true });
 
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            if (inkCanvas) {
-                inkWidth = inkCanvas.width = window.innerWidth;
-                inkHeight = inkCanvas.height = window.innerHeight;
+        // 移动端触屏手势支持（10px 防手抖点击阈值 + 3D 苍松/仙鹤触控直达 + 《朝元图》拖动锁定防误退）
+        let touchStartLogicalX = 0;
+        let touchStartLogicalY = 0;
+        let lastTouchLogicalX = 0;
+        let lastTouchLogicalY = 0;
+        let isTouchingScreen = false;
+        let isTouchDragging = false;
+        let lastTouchDragEndTime = 0;
+
+        window.addEventListener('touchstart', (e) => {
+            if (!e.touches || e.touches.length === 0) return;
+            const t = e.touches[0];
+            const mapped = mapClientToLogical(t.clientX, t.clientY);
+            touchStartLogicalX = lastTouchLogicalX = mapped.x;
+            touchStartLogicalY = lastTouchLogicalY = mapped.y;
+            isTouchingScreen = true;
+            isTouchDragging = false;
+
+            // 同步更新 NDC 坐标，使《朝元图》壁画放大镜立即可响应手指按压位置
+            mouseX = (mapped.x / viewW) * 2 - 1;
+            mouseY = -(mapped.y / viewH) * 2 + 1;
+        }, { passive: true });
+
+        window.addEventListener('touchmove', (e) => {
+            if (!isTouchingScreen || !e.touches || e.touches.length === 0) return;
+            const t = e.touches[0];
+            const mapped = mapClientToLogical(t.clientX, t.clientY);
+            const dx = mapped.x - lastTouchLogicalX;
+            const dy = mapped.y - lastTouchLogicalY;
+            const totalMoveDist = Math.hypot(mapped.x - touchStartLogicalX, mapped.y - touchStartLogicalY);
+
+            // 1. 防手抖死区：手指位移未超过 10px 时视为点击预备，绝不触发视角滚动，保证仙鹤/苍松/节点一触即开
+            if (!isTouchDragging && totalMoveDist < 10) {
+                return;
             }
+            isTouchDragging = true;
+
+            lastTouchLogicalX = mapped.x;
+            lastTouchLogicalY = mapped.y;
+
+            mouseX = (mapped.x / viewW) * 2 - 1;
+            mouseY = -(mapped.y / viewH) * 2 + 1;
+
+            // 2. 若当前正在探索卷三《朝元图》殿心壁画特写（activeHoverIndex === 5 或 lastFocusIndex === 5），单指拖动直接移动彩色复原透镜，不滚动长卷且不退出节点
+            if ((activeHoverIndex === 5 || (lastFocusIndex === 5 && targetZoomFactor > 0.3)) && navProgress >= 4.6) {
+                if (e.cancelable) e.preventDefault();
+                return;
+            }
+
+            // 3. 若在首屏「三晋三筑营造总览」弹窗内滑动，顺滑收起总览并步入卷一
+            const ovStop0El = document.getElementById('overview-stop0');
+            if (ovStop0El && ovStop0El.classList.contains('active')) {
+                const totalSwipe = (touchStartLogicalY - mapped.y) + (touchStartLogicalX - mapped.x) * 0.6;
+                if (totalSwipe > 36) {
+                    if (typeof closeOverviewStop0 === 'function') closeOverviewStop0();
+                    targetNavProgress = 1.0;
+                    isTouchingScreen = false;
+                }
+                return;
+            }
+
+            // 4. 若其它大型考据弹窗处于打开状态，不触发长卷背景推进
+            const stop4El = document.getElementById('narrative-stop4');
+            if (stop4El && (stop4El.classList.contains('active') || stop4El.style.display === 'block')) return;
+
+            const stop2El = document.getElementById('narrative-stop2');
+            if (stop2El && stop2El.classList.contains('expanded')) return;
+
+            const s1ScrollEl = document.getElementById('scene1-beast-scroll-overlay');
+            if (s1ScrollEl && s1ScrollEl.classList.contains('active')) return;
+
+            if (e.cancelable) e.preventDefault();
+
+            // 兼容逻辑横屏下的上下滑动 (-dy) 与左右顺长卷滑动 (-dx)，幅度更大者驱动长卷推进
+            const primaryDelta = Math.abs(dy) >= Math.abs(dx) ? -dy : -dx;
+            lastWheelTime = performance.now();
+            targetNavProgress += primaryDelta * 0.0042;
+            targetNavProgress = Math.max(0.0, Math.min(5.0, targetNavProgress));
+        }, { passive: false });
+
+        window.addEventListener('touchend', (e) => {
+            if (!isTouchingScreen) return;
+            isTouchingScreen = false;
+            if (isTouchDragging) {
+                lastTouchDragEndTime = performance.now();
+                isTouchDragging = false;
+                return;
+            }
+            // 轻触点按（位移 < 10px）：若点在 3D 苍松或 3D 仙鹤/发光层上，立即触发对应弹窗，无需等待合成 click
+            if (e.changedTouches && e.changedTouches.length > 0) {
+                const t = e.changedTouches[0];
+                const mapped = mapClientToLogical(t.clientX, t.clientY);
+                const tapVec = new THREE.Vector2(
+                    (mapped.x / viewW) * 2 - 1,
+                    -(mapped.y / viewH) * 2 + 1
+                );
+                const tapRaycaster = new THREE.Raycaster();
+                tapRaycaster.setFromCamera(tapVec, camera);
+
+                // 场景零：点按 3D 苍松或发光层
+                if (navProgress <= 0.42 && overviewStop0Container && !overviewStop0Container.classList.contains('active')) {
+                    const treeTargets = [];
+                    if (typeof treeMesh !== 'undefined') treeTargets.push(treeMesh);
+                    if (typeof treeGlowMesh !== 'undefined') treeTargets.push(treeGlowMesh);
+                    if (treeTargets.length > 0 && tapRaycaster.intersectObjects(treeTargets).length > 0) {
+                        openOverviewStop0();
+                        return;
+                    }
+                }
+                // 场景四（卷三前瞻）：点按 3D 仙鹤或仙鹤发光层
+                if (navProgress >= 3.45 && navProgress <= 4.50 && stop4Container && !stop4Container.classList.contains('active')) {
+                    const craneTargets = [];
+                    if (typeof bg3CraneMesh !== 'undefined') craneTargets.push(bg3CraneMesh);
+                    if (typeof craneGlowMesh !== 'undefined') craneTargets.push(craneGlowMesh);
+                    if (craneTargets.length > 0 && tapRaycaster.intersectObjects(craneTargets).length > 0) {
+                        openStop4FromCrane();
+                        return;
+                    }
+                }
+            }
+        }, { passive: true });
+
+        window.addEventListener('resize', () => {
+            updateViewportMetrics();
+            camera.aspect = viewW / viewH;
+            camera.updateProjectionMatrix();
+            renderer.setSize(viewW, viewH);
+            if (inkCanvas) {
+                inkWidth = inkCanvas.width = viewW;
+                inkHeight = inkCanvas.height = viewH;
+            }
+        });
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                updateViewportMetrics();
+                camera.aspect = viewW / viewH;
+                camera.updateProjectionMatrix();
+                renderer.setSize(viewW, viewH);
+            }, 120);
         });
 
         function smooth(t) {
@@ -1519,6 +1735,134 @@ const loadingBar = document.getElementById('loading-bar');
             }
         }
 
+        // ==========================================
+        // 观景位 0：首屏左侧苍松点击唤起「三晋三筑营造总览」交互驱动
+        // ==========================================
+        const overviewStop0Container = document.getElementById('overview-stop0');
+        const overviewStop0Panel = document.getElementById('overviewStop0Panel');
+        const overviewStop0Backdrop = document.getElementById('overviewStop0Backdrop');
+        const closeOverviewStop0Btn = document.getElementById('closeOverviewStop0Btn');
+        const treeHotspotEl = document.getElementById('tree-hotspot');
+
+        // 注入 ELEMENT_ASSETS 内置高清古建立面图，确保本地与云端零断图
+        if (typeof ELEMENT_ASSETS !== 'undefined') {
+            const ovImg1 = document.getElementById('ovImg1');
+            const ovImg2 = document.getElementById('ovImg2');
+            const ovImg3 = document.getElementById('ovImg3');
+            if (ovImg1 && ELEMENT_ASSETS.building) ovImg1.src = ELEMENT_ASSETS.building;
+            if (ovImg2 && ELEMENT_ASSETS.building2) ovImg2.src = ELEMENT_ASSETS.building2;
+            if (ovImg3 && ELEMENT_ASSETS.building3) ovImg3.src = ELEMENT_ASSETS.building3;
+        }
+
+        // 在总览面板开启时向下拨动鼠标滚轮，自动收起总览并顺畅启动卷一漫游，强化「滚轮驱动」操作认知
+        if (overviewStop0Container) {
+            overviewStop0Container.addEventListener('wheel', (e) => {
+                e.stopPropagation();
+                if (e.deltaY > 12 && overviewStop0Container.classList.contains('active')) {
+                    closeOverviewStop0();
+                    targetNavProgress = 1.0;
+                }
+            }, { passive: false });
+        }
+        if (overviewStop0Panel) {
+            overviewStop0Panel.addEventListener('wheel', (e) => {
+                e.stopPropagation();
+                if (e.deltaY > 12 && overviewStop0Container && overviewStop0Container.classList.contains('active')) {
+                    closeOverviewStop0();
+                    targetNavProgress = 1.0;
+                }
+            }, { passive: false });
+        }
+
+        function openOverviewStop0() {
+            targetNavProgress = 0.0;
+            navProgress = 0.0;
+            targetOffsetX = 0;
+            targetOffsetY = 0;
+            currentOffsetX = 0;
+            currentOffsetY = 0;
+            if (overviewStop0Container) {
+                overviewStop0Container.style.display = 'block';
+                void overviewStop0Container.offsetWidth;
+                overviewStop0Container.classList.add('active');
+            }
+        }
+
+        function closeOverviewStop0() {
+            if (overviewStop0Container) {
+                overviewStop0Container.classList.remove('active');
+                setTimeout(() => {
+                    if (overviewStop0Container && !overviewStop0Container.classList.contains('active')) {
+                        overviewStop0Container.style.display = 'none';
+                    }
+                }, 360);
+            }
+        }
+
+        if (treeHotspotEl) {
+            treeHotspotEl.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                openOverviewStop0();
+            });
+        }
+
+        if (closeOverviewStop0Btn) {
+            closeOverviewStop0Btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                closeOverviewStop0();
+            });
+        }
+
+        if (overviewStop0Backdrop) {
+            overviewStop0Backdrop.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                closeOverviewStop0();
+            });
+        }
+
+        // 点击底部「向下滚动鼠标滚轮 · 依序游历三晋长卷」引导栏亦可收起总览并步入卷一
+        const ovScrollGuideBar = document.getElementById('overviewScrollGuideBar');
+        if (ovScrollGuideBar) {
+            ovScrollGuideBar.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                closeOverviewStop0();
+                targetNavProgress = 1.0;
+            });
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && overviewStop0Container && overviewStop0Container.classList.contains('active')) {
+                closeOverviewStop0();
+            }
+        });
+
+        // 点击首屏 3D 苍松实体 Mesh 或发光圈 (Raycaster 射线拾取，支持移动端旋转坐标映射)
+        window.addEventListener('click', (e) => {
+            if (navProgress > 0.42) return;
+            if (overviewStop0Container && overviewStop0Container.classList.contains('active')) return;
+            if (typeof treeMesh === 'undefined') return;
+
+            const mapped = mapClientToLogical(e.clientX, e.clientY);
+            const clickVec = new THREE.Vector2(
+                (mapped.x / viewW) * 2 - 1,
+                -(mapped.y / viewH) * 2 + 1
+            );
+            const treeRaycaster = new THREE.Raycaster();
+            treeRaycaster.setFromCamera(clickVec, camera);
+            const treeTargets = [treeMesh];
+            if (typeof treeGlowMesh !== 'undefined') treeTargets.push(treeGlowMesh);
+            const hits = treeRaycaster.intersectObjects(treeTargets);
+            if (hits.length > 0) {
+                e.preventDefault();
+                e.stopPropagation();
+                openOverviewStop0();
+            }
+        });
+
         // 1. 点击仙鹤 2D 悬浮引注
         const craneHotspotEl = document.getElementById('crane-hotspot');
         if (craneHotspotEl) {
@@ -1529,19 +1873,22 @@ const loadingBar = document.getElementById('loading-bar');
             });
         }
 
-        // 2. 点击 3D 仙鹤实体 Mesh (Raycaster 射线拾取)
+        // 2. 点击 3D 仙鹤实体 Mesh 或仙鹤发光圈 (Raycaster 射线拾取，支持移动端旋转坐标映射)
         window.addEventListener('click', (e) => {
-            if (navProgress < 3.55 || navProgress > 4.45) return;
+            if (navProgress < 3.45 || navProgress > 4.50) return;
             if (stop4Container && stop4Container.classList.contains('active')) return;
             if (typeof bg3CraneMesh === 'undefined') return;
 
+            const mapped = mapClientToLogical(e.clientX, e.clientY);
             const clickVec = new THREE.Vector2(
-                (e.clientX / window.innerWidth) * 2 - 1,
-                -(e.clientY / window.innerHeight) * 2 + 1
+                (mapped.x / viewW) * 2 - 1,
+                -(mapped.y / viewH) * 2 + 1
             );
             const craneRaycaster = new THREE.Raycaster();
             craneRaycaster.setFromCamera(clickVec, camera);
-            const hits = craneRaycaster.intersectObject(bg3CraneMesh);
+            const craneTargets = [bg3CraneMesh];
+            if (typeof craneGlowMesh !== 'undefined') craneTargets.push(craneGlowMesh);
+            const hits = craneRaycaster.intersectObjects(craneTargets);
             if (hits.length > 0) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -1586,7 +1933,8 @@ const loadingBar = document.getElementById('loading-bar');
         const diagMineralTag4 = document.getElementById('diagramMineralTag');
         const specimenCards4 = document.querySelectorAll('#narrative-stop4 .specimen-card');
         specimenCards4.forEach(card => {
-            card.addEventListener('mouseenter', () => {
+            const activateSpecimenCard = (e) => {
+                if (e && e.type === 'click') e.stopPropagation();
                 specimenCards4.forEach(c => c.classList.remove('active'));
                 card.classList.add('active');
 
@@ -1600,7 +1948,9 @@ const loadingBar = document.getElementById('loading-bar');
                         diagMineralImg4.style.opacity = '1';
                     }, 120);
                 }
-            });
+            };
+            card.addEventListener('mouseenter', activateSpecimenCard);
+            card.addEventListener('click', activateSpecimenCard);
         });
 
         // 切换折页图层：立面概述 <-> 规矩动效图解
@@ -1740,9 +2090,27 @@ const loadingBar = document.getElementById('loading-bar');
             }
         }
 
-        // 点击屏幕空白处平滑收拢折页
+        // 点击屏幕空白处平滑收拢折页（屏蔽触控拖拽结束后的合成 click 误触，且点击在《朝元图》壁画内部时不退出，仅移动彩色透镜）
         window.addEventListener('click', (e) => {
+            if (performance.now() - lastTouchDragEndTime < 350) return;
             if (e.target.closest('.specimen-hotspot') || e.target.closest('#narrative-stop2') || e.target.closest('#narrative-stop4')) return;
+
+            // 当《朝元图》特写节点处于激活状态时，点击或触摸壁画本体仅移动复原透镜，不退出特写；仅点击壁画外的空白背景才复位
+            if (activeHoverIndex === 5 && typeof muralDetailMesh !== 'undefined') {
+                const mapped = mapClientToLogical(e.clientX, e.clientY);
+                const clickVec = new THREE.Vector2(
+                    (mapped.x / viewW) * 2 - 1,
+                    -(mapped.y / viewH) * 2 + 1
+                );
+                const muralClickRay = new THREE.Raycaster();
+                muralClickRay.setFromCamera(clickVec, camera);
+                const muralHits = muralClickRay.intersectObject(muralDetailMesh);
+                if (muralHits.length > 0) {
+                    targetLensUv.copy(muralHits[0].uv);
+                    return;
+                }
+            }
+
             if (activeHoverIndex >= 0) {
                 unpinAndRestore();
             }
@@ -1869,6 +2237,35 @@ const loadingBar = document.getElementById('loading-bar');
                 }
             }
 
+            // 观景位 0：首屏左侧苍松引注热点屏幕投影与发光联动
+            const isStop0OverviewActive = overviewStop0Container && overviewStop0Container.classList.contains('active');
+            if (treeHotspotEl && typeof treeMesh !== 'undefined') {
+                let treePromptAlpha = 0.0;
+                if (!isStop0OverviewActive && navProgress <= 0.42) {
+                    treePromptAlpha = Math.max(0.0, 1.0 - navProgress / 0.38);
+                }
+                if (treePromptAlpha <= 0.01) {
+                    treeHotspotEl.style.opacity = '0';
+                    treeHotspotEl.style.pointerEvents = 'none';
+                } else {
+                    projVec.set(-43.2, -14.8, 5.0); // 左移3至 -43.2，保持树干中间高度
+                    projVec.project(camera);
+                    const sx = (projVec.x * 0.5 + 0.5) * viewW;
+                    const sy = (-projVec.y * 0.5 + 0.5) * viewH;
+                    treeHotspotEl.style.transform = `translate3d(${sx}px, ${sy}px, 0)`;
+                    treeHotspotEl.style.opacity = treePromptAlpha.toFixed(3);
+                    treeHotspotEl.style.pointerEvents = treePromptAlpha > 0.25 ? 'auto' : 'none';
+                }
+            }
+            if (typeof treeGlowMat !== 'undefined' && treeGlowMat.uniforms && treeGlowMat.uniforms.uOpacity) {
+                let treeGlowAlpha = 0.0;
+                if (!isStop0OverviewActive && navProgress <= 0.42) {
+                    treeGlowAlpha = Math.max(0.0, 1.0 - navProgress / 0.38);
+                }
+                const treePulse = 0.55 + 0.45 * Math.sin(elapsed * 2.8);
+                treeGlowMat.uniforms.uOpacity.value = treeGlowAlpha * treePulse;
+            }
+
             // 观景位 4：仙鹤引注热点屏幕投影与 Stop 4 激活联动
             const craneTagEl = document.getElementById('crane-hotspot');
             const bookletStop4 = document.getElementById('narrative-stop4');
@@ -1890,8 +2287,8 @@ const loadingBar = document.getElementById('loading-bar');
                     projVec.x += 6.6; // 置于仙鹤右侧身旁空白处
                     projVec.y += 0.5; // 置于仙鹤颈胸高度
                     projVec.project(camera);
-                    const sx = (projVec.x * 0.5 + 0.5) * window.innerWidth;
-                    const sy = (-projVec.y * 0.5 + 0.5) * window.innerHeight;
+                    const sx = (projVec.x * 0.5 + 0.5) * viewW;
+                    const sy = (-projVec.y * 0.5 + 0.5) * viewH;
                     craneTagEl.style.transform = `translate3d(${sx}px, ${sy}px, 0)`;
                     craneTagEl.style.opacity = craneAlpha.toFixed(3);
                     craneTagEl.style.pointerEvents = craneAlpha > 0.25 ? 'auto' : 'none';
@@ -2229,10 +2626,10 @@ const loadingBar = document.getElementById('loading-bar');
                     return;
                 }
 
-                // 将构件三维坐标投影至屏幕对应位置（纯显示投影，彻底删除靠近触发镜头）
+                // 将构件三维坐标投影至屏幕对应位置（纯显示投影，适配移动端旋转视口）
                 projVec.copy(data.pos).project(camera);
-                const sx = (projVec.x * 0.5 + 0.5) * window.innerWidth;
-                const sy = (-projVec.y * 0.5 + 0.5) * window.innerHeight;
+                const sx = (projVec.x * 0.5 + 0.5) * viewW;
+                const sy = (-projVec.y * 0.5 + 0.5) * viewH;
                 el.style.transform = `translate3d(${sx}px, ${sy}px, 0)`;
                 el.style.opacity = spotAlpha.toFixed(3);
                 el.style.pointerEvents = spotAlpha > 0.05 ? 'auto' : 'none';

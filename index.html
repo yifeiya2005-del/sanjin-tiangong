@@ -2,7 +2,9 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>3D 纵深长卷 · 三晋天工</title>
   <script src="three.min.js"></script>
   <link rel="stylesheet" href="styles.css">
@@ -49,6 +51,137 @@
   <div class="insc-col insc-poem-col">重檐叠翠隐松风<span class="insc-hint"><span class="insc-hint-words">滚动深入<span class="scroll-wheel-anim" aria-hidden="true"><svg viewBox="0 0 22 29" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="1.5" width="16" height="26" rx="8" fill="rgba(251, 246, 236, 0.42)" stroke="#2b231d" stroke-width="1.6"/><line x1="11" y1="6.5" x2="11" y2="17.5" stroke="rgba(43, 35, 29, 0.25)" stroke-width="1.2" stroke-linecap="round"/><circle class="wheel-bead" cx="11" cy="8" r="2.3" fill="#b22d26"/></svg></span></span><span class="hint-arrow">▾</span></span></div>
   <!-- 第 3 列 (最右)：工笔诗文下联 -->
   <div class="insc-col insc-poem-col">一进初庭入画中</div>
+  </div>
+  <!-- ============================================================== -->
+  <!-- 观景位 0：开篇「三晋天工 · 三大古建总览」居中三联乌丝栏画卷 (点击首屏左侧苍松唤起) -->
+  <!-- ============================================================== -->
+  <div id="overview-stop0">
+  <div class="overview-backdrop" id="overviewStop0Backdrop"></div>
+  <div class="overview-panel" id="overviewStop0Panel">
+  <button class="overview-close-btn" id="closeOverviewStop0Btn" title="收起总览">✕</button>
+  <!-- 顶部通栏总叙眉头 -->
+  <div class="overview-header">
+  <div class="overview-header-left">
+  <span class="overview-seal-badge">三晋天工</span>
+  <div class="overview-title-group">
+  <h2>表里山河 · 三晋三筑营造总览</h2>
+  <p>跨越北魏、元、明千载岁月 · 纵览晋中市井神楼、晋北绝壁奇构与晋南道教祖庭</p>
+  </div>
+  </div>
+  </div>
+  <!-- 三联并列建筑总览甲板 -->
+  <div class="overview-cards-grid">
+  <!-- 建筑一：卷一 · 介休祆神楼 -->
+  <div class="overview-bldg-card">
+  <div class="ov-card-top">
+  <span class="ov-vol-tag">卷一 · 首章</span>
+  <span class="ov-era-tag">晋中 · 明代正德</span>
+  </div>
+  <div class="ov-card-art">
+  <img id="ovImg1" src="building_cutout.png" alt="介休祆神楼国画立面">
+  </div>
+  <div class="ov-card-title-block">
+  <h3 class="ov-bldg-name"><ruby>介<rt>jiè</rt></ruby><ruby>休<rt>xiū</rt></ruby><ruby>祆<rt>xiān</rt></ruby><ruby>神<rt>shén</rt></ruby><ruby>楼<rt>lóu</rt></ruby></h3>
+  <span class="ov-bldg-sub">三彩琉璃神兽与十字歇山孤例</span>
+  </div>
+  <p class="ov-card-desc">我国现存唯一明代<strong>顺城街过街戏台与重檐十字歇山顶</strong>相交的楼阁孤例。底层跨街贯通市井，檐下施精雕<strong>莲花托角斗栱</strong>；屋脊满饰晋中<strong>明代三彩琉璃脊兽</strong>，见证丝路遗风与本土神道木构的共融。</p>
+  <div class="ov-card-metrics">
+  <div class="ov-metric-item">
+  <span class="ov-m-val">十字歇山</span>
+  <span class="ov-m-lbl">明代楼阁孤例</span>
+  </div>
+  <div class="ov-metric-item">
+  <span class="ov-m-val">5 大脊兽</span>
+  <span class="ov-m-lbl">明代三彩琉璃</span>
+  </div>
+  <div class="ov-metric-item">
+  <span class="ov-m-val">过街戏台</span>
+  <span class="ov-m-lbl">三层悬挑斗栱</span>
+  </div>
+  </div>
+  <div class="ov-card-seq-tag">
+  <span class="ov-seq-hint">过街神楼 · 歇山琉璃</span>
+  </div>
+  </div>
+  <!-- 建筑二：卷二 · 浑源悬空寺 -->
+  <div class="overview-bldg-card">
+  <div class="ov-card-top">
+  <span class="ov-vol-tag">卷二 · 中章</span>
+  <span class="ov-era-tag">晋北 · 北魏太和</span>
+  </div>
+  <div class="ov-card-art">
+  <img id="ovImg2" src="2建筑.png" alt="浑源悬空寺国画立面">
+  </div>
+  <div class="ov-card-title-block">
+  <h3 class="ov-bldg-name"><ruby>浑<rt>hún</rt></ruby><ruby>源<rt>yuán</rt></ruby><ruby>悬<rt>xuán</rt></ruby><ruby>空<rt>kōng</rt></ruby><ruby>寺<rt>sì</rt></ruby></h3>
+  <span class="ov-bldg-sub">万仞绝壁飞梁与悬空奇险力学</span>
+  </div>
+  <p class="ov-card-desc">始建于北魏太和十五年（491年），嵌于恒山金龙峡百丈内凹绝壁。古匠凿石深孔，插入桐油浸泡的<strong>“铁镦半插飞梁”</strong>挑起整座殿阁，下设<strong>“似立非立”虚悬立木</strong>分荷抗震，创下<strong>儒释道三教同殿</strong>的凌空奇迹。</p>
+  <div class="ov-card-metrics">
+  <div class="ov-metric-item">
+  <span class="ov-m-val">491 年</span>
+  <span class="ov-m-lbl">北魏太和始建</span>
+  </div>
+  <div class="ov-metric-item">
+  <span class="ov-m-val">2-3 米</span>
+  <span class="ov-m-lbl">飞梁深嵌崖石</span>
+  </div>
+  <div class="ov-metric-item">
+  <span class="ov-m-val">三教同殿</span>
+  <span class="ov-m-lbl">悬梁立木互补</span>
+  </div>
+  </div>
+  <div class="ov-card-seq-tag">
+  <span class="ov-seq-hint">万仞飞梁 · 虚悬奇构</span>
+  </div>
+  </div>
+  <!-- 建筑三：卷三 · 芮城永乐宫 -->
+  <div class="overview-bldg-card">
+  <div class="ov-card-top">
+  <span class="ov-vol-tag">卷三 · 终章</span>
+  <span class="ov-era-tag">晋南 · 元代至元</span>
+  </div>
+  <div class="ov-card-art">
+  <img id="ovImg3" src="3建筑.png" alt="芮城永乐宫国画立面">
+  </div>
+  <div class="ov-card-title-block">
+  <h3 class="ov-bldg-name"><ruby>芮<rt>ruì</rt></ruby><ruby>城<rt>chéng</rt></ruby><ruby>永<rt>yǒng</rt></ruby><ruby>乐<rt>lè</rt></ruby><ruby>宫<rt>gōng</rt></ruby></h3>
+  <span class="ov-bldg-sub">三门峡整宫迁建与朝元图重彩</span>
+  </div>
+  <p class="ov-card-desc">元代道教全真派祖庭巨制。三清殿采用<strong>“减柱造”与七铺作斗拱</strong>营造十五米无遮挡通阔殿心；四壁满绘逾四百平米<strong>天然矿物重彩《朝元图》</strong>；1959年因水库兴建，历时十年完成<strong>二十公里原构整体搬迁</strong>。</p>
+  <div class="ov-card-metrics">
+  <div class="ov-metric-item">
+  <span class="ov-m-val">700 余年</span>
+  <span class="ov-m-lbl">矿物重彩壁画</span>
+  </div>
+  <div class="ov-metric-item">
+  <span class="ov-m-val">减柱造</span>
+  <span class="ov-m-lbl">殿心零遮视野</span>
+  </div>
+  <div class="ov-metric-item">
+  <span class="ov-m-val">20 公里</span>
+  <span class="ov-m-lbl">整宫落架迁建</span>
+  </div>
+  </div>
+  <div class="ov-card-seq-tag">
+  <span class="ov-seq-hint">减柱大殿 · 矿物重彩</span>
+  </div>
+  </div>
+  </div>
+  <!-- 底部通栏滚轮游历操作认知强化栏 -->
+  <div class="overview-scroll-guide" id="overviewScrollGuideBar" title="向下拨动鼠标滚轮即可开启长卷漫游">
+  <span class="ov-scroll-wheel-icon" aria-hidden="true">
+  <svg viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="2.5" y="1.5" width="19" height="28" rx="9.5" stroke="#2b231d" stroke-width="2.1"/>
+  <line x1="12" y1="6.5" x2="12" y2="14.5" stroke="#2b231d" stroke-width="1.6" stroke-linecap="round" opacity="0.35"/>
+  <circle class="wheel-bead" cx="12" cy="8.5" r="2.5" fill="#b22d26"/>
+  <path d="M8.5 32.5L12 35.5L15.5 32.5" stroke="#b22d26" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  </span>
+  <span class="ov-scroll-guide-text">向下拨动<strong>鼠标滚轮</strong> · 顺山水长卷由浅入深依序游历三晋三筑</span>
+  <span class="ov-scroll-guide-sub">（当前页面直接下滚滚轮即可收起总览并步入卷一）</span>
+  </div>
+  </div>
   </div>
   <!-- 观景位 1/2/3：左上角三大古建篇章主标 (竖线 + 拼音注音卷名 + 朱印 + 题旨) -->
   <div id="chapter-badge">
@@ -571,8 +704,13 @@
   </div>
   </div>
   </div>
-  <!-- 观景位 1/2/3/4：古建构件与仙鹤水墨交互 -->
+  <!-- 观景位 0/1/2/3/4：古建构件与苍松/仙鹤水墨交互 -->
   <div id="building-hotspots">
+  <!-- 【场景零 · 序卷】左侧近景苍松右侧纯文字提示 (与仙鹤同款无框黑字左指箭头) -->
+  <div class="crane-hotspot" id="tree-hotspot" title="点击苍松展读三筑总览">
+  <span class="crane-prompt-arrow">◂</span>
+  <span class="crane-prompt-text">点击苍松 · 三筑总览</span>
+  </div>
   <!-- 【场景四 · 芮城永乐宫】仙鹤右侧纯文字提示 (无边框·金辉朱砂呼吸光) -->
   <div class="crane-hotspot" id="crane-hotspot" title="点击仙鹤展读考据">
   <span class="crane-prompt-arrow">◂</span>
