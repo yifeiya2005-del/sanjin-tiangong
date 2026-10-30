@@ -26,9 +26,10 @@ const loadingBar = document.getElementById('loading-bar');
             document.documentElement.style.setProperty('--seal-bg', `url("${ELEMENT_ASSETS.hongyin}")`);
         }
 
-        // 1. 初始化场景与渲染器（支持移动端自动 90° 横屏展卷与触控纯净模式）
+        // 1. 初始化场景与渲染器（移动端采用电脑原版画布 1:1 全局等比 Scale-to-Fit 矩阵缩放，零换行、零变形）
         const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
         let isPortraitRotated = false;
+        let mobileZoomScale = 1.0;
         let viewW = window.innerWidth;
         let viewH = window.innerHeight;
 
@@ -36,23 +37,28 @@ const loadingBar = document.getElementById('loading-bar');
             const rawW = (window.visualViewport && window.visualViewport.width) ? window.visualViewport.width : window.innerWidth;
             const rawH = (window.visualViewport && window.visualViewport.height) ? window.visualViewport.height : window.innerHeight;
             if (rawH > rawW && rawW <= 920) {
+                // 手机竖屏：此时浏览器底层 1vh = rawH / 100。
+                // 我们将 body 的逻辑高度设为 rawH (等于 100vh)，逻辑宽度设为 rawH * (rawH / rawW)，
+                // 再将整个 body 旋转 90° 后直接等比缩小 scale = rawW / rawH，使内部所有 vh 元素与电脑端 100% 像素级同比例！
                 isPortraitRotated = true;
                 document.documentElement.classList.add('mobile-portrait-rotated');
-                viewW = rawH;
-                viewH = rawW;
-                // 计算竖屏旋转后 CSS vh (基于 rawH) 与真实逻辑横屏高度 (rawW) 的缩放比，消除 2.16 倍放大溢出
-                const rotScale = Math.max(0.32, Math.min(0.68, rawW / rawH));
-                document.documentElement.style.setProperty('--rot-scale', rotScale.toFixed(4));
-                document.documentElement.style.setProperty('--logical-w', `${rawH}px`);
-                document.documentElement.style.setProperty('--logical-h', `${rawW}px`);
+                mobileZoomScale = rawW / rawH;
+                viewH = rawH;
+                viewW = Math.round(rawH * (rawH / rawW));
+                document.documentElement.style.setProperty('--m-scale', mobileZoomScale.toFixed(5));
+                document.documentElement.style.setProperty('--m-width', `${viewW}px`);
+                document.documentElement.style.setProperty('--m-height', `${viewH}px`);
+                document.documentElement.style.setProperty('--m-left', `${rawW}px`);
             } else {
                 isPortraitRotated = false;
                 document.documentElement.classList.remove('mobile-portrait-rotated');
+                mobileZoomScale = 1.0;
                 viewW = rawW;
                 viewH = rawH;
-                document.documentElement.style.setProperty('--rot-scale', '1');
-                document.documentElement.style.setProperty('--logical-w', `${rawW}px`);
-                document.documentElement.style.setProperty('--logical-h', `${rawH}px`);
+                document.documentElement.style.removeProperty('--m-scale');
+                document.documentElement.style.removeProperty('--m-width');
+                document.documentElement.style.removeProperty('--m-height');
+                document.documentElement.style.removeProperty('--m-left');
             }
         }
         updateViewportMetrics();
@@ -60,9 +66,10 @@ const loadingBar = document.getElementById('loading-bar');
         // 将物理屏幕坐标 (clientX, clientY) 自动映射为当前长卷逻辑横屏坐标 (x, y)
         function mapClientToLogical(cx, cy) {
             if (isPortraitRotated) {
+                const rawW = (window.visualViewport && window.visualViewport.width) ? window.visualViewport.width : window.innerWidth;
                 return {
-                    x: cy,
-                    y: viewH - cx
+                    x: cy / mobileZoomScale,
+                    y: (rawW - cx) / mobileZoomScale
                 };
             }
             return { x: cx, y: cy };
