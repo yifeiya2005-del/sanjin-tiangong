@@ -3238,7 +3238,7 @@
         }
 
         /* 2. 手机竖屏握持时：无需开启系统旋转锁，自动旋转 90° 满屏横置展开 16:9 长卷 */
-        /*    并将全局 vh/vw 单位自动重映射为旋转后的逻辑横屏宽高，所有弹窗/经折装等比适配 */
+        /*    使用真实可视区变量 (--logical-w / --logical-h / --rot-scale) 彻底根除真机 1vh 放大 2.16 倍导致的文字裁切 */
         html.mobile-portrait-rotated {
             position: fixed;
             top: 0;
@@ -3252,21 +3252,26 @@
         html.mobile-portrait-rotated body {
             position: fixed !important;
             top: 0 !important;
-            left: 100vw !important;
-            width: 100vh !important;
-            height: 100vw !important;
+            left: var(--logical-h, 100vw) !important;
+            width: var(--logical-w, 100vh) !important;
+            height: var(--logical-h, 100vw) !important;
             transform-origin: 0 0 !important;
             transform: rotate(90deg) !important;
             overflow: hidden !important;
             touch-action: none;
         }
 
-        html.mobile-portrait-rotated #webgl-canvas {
-            width: 100vh !important;
-            height: 100vw !important;
+        html.mobile-portrait-rotated #webgl-canvas,
+        html.mobile-portrait-rotated #building-hotspots,
+        html.mobile-portrait-rotated #overview-stop0,
+        html.mobile-portrait-rotated #narrative-stop2,
+        html.mobile-portrait-rotated #narrative-stop4,
+        html.mobile-portrait-rotated #scene1-beast-scroll-overlay {
+            width: var(--logical-w, 100vh) !important;
+            height: var(--logical-h, 100vw) !important;
         }
 
-        /* 手机竖屏旋转 90° 后：原 vh 对应现视口宽度 (1vw)，原 vw 对应现视口高度 (1vh) */
+        /* 手机竖屏旋转 90° 后：原 vh 对应现物理视口宽度 (1vw)，原 vw 对应现物理视口高度 (1vh) */
         html.mobile-portrait-rotated #inscription-stop0 {
             top: 25vw;
             left: 55vh;
@@ -3323,37 +3328,6 @@
         html.mobile-portrait-rotated #chapter-badge .badge-hint {
             font-size: 1.62vw;
         }
-        html.mobile-portrait-rotated #overview-stop0 .overview-panel {
-            width: min(88vh, 156vw);
-            height: 83vw;
-            padding: 1.8vw 2.8vw;
-        }
-        html.mobile-portrait-rotated #narrative-stop2 .fold-book-anchor {
-            right: calc(50vh - 50.5vw);
-        }
-        html.mobile-portrait-rotated #narrative-stop2:not(.expanded) .fold-book-anchor {
-            right: 8vh;
-        }
-        html.mobile-portrait-rotated #narrative-stop4 {
-            width: 100vh !important;
-            height: 100vw !important;
-        }
-        html.mobile-portrait-rotated #narrative-stop4.active .glass-panel {
-            width: min(88vh, 152vw);
-            height: 78vw;
-        }
-        html.mobile-portrait-rotated #narrative-stop2 {
-            width: 100vh !important;
-            height: 100vw !important;
-        }
-        html.mobile-portrait-rotated #scene1-beast-scroll-overlay {
-            width: 100vh !important;
-            height: 100vw !important;
-        }
-        html.mobile-portrait-rotated #scene1-beast-scroll-overlay .s1-scroll-assembly {
-            transform: scale(0.86);
-            transform-origin: center center;
-        }
         html.mobile-portrait-rotated .crane-prompt-text {
             font-size: 1.95vw;
         }
@@ -3361,7 +3335,158 @@
             font-size: 1.65vw;
         }
 
-        /* 手机原生横屏 (小高度如 360px~440px) 下弹窗微缩放防溢出 */
+        /* 手机竖屏旋转态：将各大面板与立轴按 --rot-scale 等比还原至 1:1 真实横屏高度比例，绝不溢出裁切 */
+        html.mobile-portrait-rotated #overview-stop0 .overview-panel {
+            transform: translate(-50%, -50%) scale(var(--rot-scale, 0.46)) !important;
+            transform-origin: center center !important;
+        }
+        html.mobile-portrait-rotated #narrative-stop4.active .glass-panel {
+            transform: translate(-50%, -50%) scale(var(--rot-scale, 0.46)) !important;
+            transform-origin: center center !important;
+        }
+        html.mobile-portrait-rotated #scene1-beast-scroll-overlay.active .s1-scroll-assembly,
+        html.mobile-portrait-rotated #scene1-beast-scroll-overlay .s1-scroll-assembly {
+            transform: scale(calc(var(--rot-scale, 0.46) * 0.94)) !important;
+            transform-origin: center center !important;
+        }
+        html.mobile-portrait-rotated #narrative-stop2 {
+            --panel-width: 26.8vw;
+            --panel-height: 60vw;
+            perspective: 275vw;
+        }
+        html.mobile-portrait-rotated #narrative-stop2 .fold-book-anchor {
+            top: 13vw;
+            right: calc(50vh - 50.5vw);
+        }
+        html.mobile-portrait-rotated #narrative-stop2:not(.expanded) .fold-book-anchor {
+            right: 8vh;
+        }
+        html.mobile-portrait-rotated #narrative-stop2 .panel-face-front {
+            padding: 1.6vw;
+        }
+        html.mobile-portrait-rotated #narrative-stop2 .inner-frame {
+            padding: 1.5vw 1.3vw;
+        }
+        html.mobile-portrait-rotated #narrative-stop2 .cover-tag { font-size: 1.5vw; }
+        html.mobile-portrait-rotated #narrative-stop2 .cover-stamp { font-size: 1.44vw; }
+        html.mobile-portrait-rotated #narrative-stop2 .cover-main-title { font-size: 3.1vw; }
+        html.mobile-portrait-rotated #narrative-stop2 .cover-sub-title { font-size: 1.65vw; }
+        html.mobile-portrait-rotated #narrative-stop2 .cover-desc { font-size: 1.6vw; }
+        html.mobile-portrait-rotated #narrative-stop2 .cover-btn { font-size: 1.6vw; padding: 0.9vw 2.2vw; }
+        html.mobile-portrait-rotated #narrative-stop2 .page-index { font-size: 1.35vw; }
+        html.mobile-portrait-rotated #narrative-stop2 .page-title { font-size: 2.15vw; }
+        html.mobile-portrait-rotated #narrative-stop2 .page-quote { font-size: 1.35vw; padding: 0.6vw 0.8vw; }
+        html.mobile-portrait-rotated #narrative-stop2 .page-body { font-size: 1.32vw; }
+        html.mobile-portrait-rotated #narrative-stop2 .stat-num { font-size: 1.7vw; }
+        html.mobile-portrait-rotated #narrative-stop2 .stat-unit,
+        html.mobile-portrait-rotated #narrative-stop2 .stat-desc { font-size: 1.2vw; }
+
+        /* 手机竖屏旋转态：节点红点、入口铭牌与点开后的详情卡片 (.callout-card) 全部改为 vw 比例 + 自动换行防裁切 */
+        html.mobile-portrait-rotated .specimen-anchor {
+            width: 6.0vw !important;
+            height: 6.0vw !important;
+            margin-top: -3.0vw !important;
+            margin-left: -3.0vw !important;
+        }
+        html.mobile-portrait-rotated .anchor-core {
+            width: 1.45vw !important;
+            height: 1.45vw !important;
+        }
+        html.mobile-portrait-rotated .ripple-outer {
+            width: 4.0vw !important;
+            height: 4.0vw !important;
+        }
+        html.mobile-portrait-rotated .ripple-inner {
+            width: 2.6vw !important;
+            height: 2.6vw !important;
+        }
+        html.mobile-portrait-rotated .anchor-tag {
+            left: 6.8vw !important;
+            padding: 0.56vw 1.25vw !important;
+            gap: 0.6vw !important;
+        }
+        html.mobile-portrait-rotated .anchor-tag::before {
+            left: -2.8vw !important;
+            width: 2.8vw !important;
+        }
+        html.mobile-portrait-rotated .anchor-tag::after {
+            left: -2.95vw !important;
+            width: 0.42vw !important;
+            height: 0.42vw !important;
+        }
+        html.mobile-portrait-rotated .anchor-tag-text {
+            font-size: 1.52vw !important;
+        }
+        html.mobile-portrait-rotated .anchor-tag-arrow {
+            font-size: 1.52vw !important;
+        }
+        html.mobile-portrait-rotated .roof-entry-leader {
+            width: 9.5vw !important;
+            height: 4.2vw !important;
+        }
+        html.mobile-portrait-rotated .roof-entry-plaque {
+            left: 8.2vw !important;
+            bottom: 2.0vw !important;
+            padding: 0.8vw 1.4vw !important;
+            gap: 0.9vw !important;
+        }
+        html.mobile-portrait-rotated .roof-entry-main-title {
+            font-size: 1.55vw !important;
+        }
+        html.mobile-portrait-rotated .roof-entry-sub-hint {
+            font-size: 1.18vw !important;
+        }
+        html.mobile-portrait-rotated .roof-entry-arrow {
+            font-size: 1.6vw !important;
+        }
+
+        /* 手机端（含竖屏旋转态与原生横屏态）：点开节点后的详情便笺 (.callout-card) 严禁超出屏幕，支持自动换行与安全区居中停靠 */
+        html.mobile-portrait-rotated .leader-line-svg,
+        html.mobile-portrait-rotated .callout-mural-left .leader-line-svg {
+            width: 11vw !important;
+            height: 3.8vw !important;
+        }
+        html.mobile-portrait-rotated .callout-right-top {
+            transform: translate3d(0, -3.2vw, 0) !important;
+        }
+        html.mobile-portrait-rotated .callout-right-top .card-right {
+            left: 10.5vw !important;
+            top: 1.0vw !important;
+        }
+        html.mobile-portrait-rotated .callout-left-top {
+            transform: translate3d(-11vw, -3.2vw, 0) !important;
+        }
+        html.mobile-portrait-rotated .callout-left-top .card-left {
+            right: 10.5vw !important;
+            top: 1.0vw !important;
+        }
+        html.mobile-portrait-rotated .callout-mural-left {
+            transform: translate3d(-14vw, -3.5vw, 0) !important;
+        }
+        html.mobile-portrait-rotated .callout-mural-left .card-left {
+            right: 13.5vw !important;
+            top: 1.0vw !important;
+        }
+        html.mobile-portrait-rotated .callout-card {
+            padding: 0.85vw 1.45vw !important;
+            gap: 0.35vw !important;
+            max-width: 58vh !important;
+            white-space: normal !important;
+        }
+        html.mobile-portrait-rotated .callout-title {
+            font-size: 1.88vw !important;
+            white-space: normal !important;
+        }
+        html.mobile-portrait-rotated .callout-sub {
+            font-size: 1.45vw !important;
+            white-space: normal !important;
+        }
+        html.mobile-portrait-rotated .callout-hint {
+            font-size: 1.18vw !important;
+            white-space: normal !important;
+        }
+
+        /* 手机原生横屏 (小高度如 360px~440px) 下弹窗与节点卡片防溢出 */
         @media screen and (max-height: 500px) and (orientation: landscape) {
             body {
                 touch-action: none;
@@ -3378,5 +3503,18 @@
             #scene1-beast-scroll-overlay .s1-scroll-assembly {
                 transform: scale(0.90);
                 transform-origin: center center;
+            }
+            .callout-card {
+                max-width: 55vw;
+                white-space: normal;
+            }
+            .callout-mural-left {
+                transform: translate3d(-18vh, -3.5vh, 0);
+            }
+            .callout-mural-left .card-left {
+                right: 17.5vh;
+            }
+            .callout-mural-left .leader-line-svg {
+                width: 18vh;
             }
         }

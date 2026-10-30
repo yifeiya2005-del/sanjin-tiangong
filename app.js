@@ -33,18 +33,26 @@ const loadingBar = document.getElementById('loading-bar');
         let viewH = window.innerHeight;
 
         function updateViewportMetrics() {
-            const rawW = window.innerWidth;
-            const rawH = window.innerHeight;
+            const rawW = (window.visualViewport && window.visualViewport.width) ? window.visualViewport.width : window.innerWidth;
+            const rawH = (window.visualViewport && window.visualViewport.height) ? window.visualViewport.height : window.innerHeight;
             if (rawH > rawW && rawW <= 920) {
                 isPortraitRotated = true;
                 document.documentElement.classList.add('mobile-portrait-rotated');
                 viewW = rawH;
                 viewH = rawW;
+                // 计算竖屏旋转后 CSS vh (基于 rawH) 与真实逻辑横屏高度 (rawW) 的缩放比，消除 2.16 倍放大溢出
+                const rotScale = Math.max(0.32, Math.min(0.68, rawW / rawH));
+                document.documentElement.style.setProperty('--rot-scale', rotScale.toFixed(4));
+                document.documentElement.style.setProperty('--logical-w', `${rawH}px`);
+                document.documentElement.style.setProperty('--logical-h', `${rawW}px`);
             } else {
                 isPortraitRotated = false;
                 document.documentElement.classList.remove('mobile-portrait-rotated');
                 viewW = rawW;
                 viewH = rawH;
+                document.documentElement.style.setProperty('--rot-scale', '1');
+                document.documentElement.style.setProperty('--logical-w', `${rawW}px`);
+                document.documentElement.style.setProperty('--logical-h', `${rawH}px`);
             }
         }
         updateViewportMetrics();
@@ -54,7 +62,7 @@ const loadingBar = document.getElementById('loading-bar');
             if (isPortraitRotated) {
                 return {
                     x: cy,
-                    y: window.innerWidth - cx
+                    y: viewH - cx
                 };
             }
             return { x: cx, y: cy };
@@ -1308,7 +1316,7 @@ const loadingBar = document.getElementById('loading-bar');
             }
         }, { passive: true });
 
-        window.addEventListener('resize', () => {
+        const handleViewportChange = () => {
             updateViewportMetrics();
             camera.aspect = viewW / viewH;
             camera.updateProjectionMatrix();
@@ -1317,14 +1325,13 @@ const loadingBar = document.getElementById('loading-bar');
                 inkWidth = inkCanvas.width = viewW;
                 inkHeight = inkCanvas.height = viewH;
             }
-        });
+        };
+        window.addEventListener('resize', handleViewportChange);
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', handleViewportChange);
+        }
         window.addEventListener('orientationchange', () => {
-            setTimeout(() => {
-                updateViewportMetrics();
-                camera.aspect = viewW / viewH;
-                camera.updateProjectionMatrix();
-                renderer.setSize(viewW, viewH);
-            }, 120);
+            setTimeout(handleViewportChange, 120);
         });
 
         function smooth(t) {
